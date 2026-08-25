@@ -108,6 +108,35 @@ CLAIMS = [
 ]
 
 
+def badge_matches_claim_count():
+    """The README's claim-count badge must equal the number of claims here.
+
+    A badge with a number in it drifts the moment a claim is added, and drifts
+    silently, in the most prominent line of the file. That is the exact failure
+    this script exists to prevent, so the badge is held to the same standard as
+    everything else it advertises. It is checked against the source rather than
+    against a captured run, because it is a statement about the repository and
+    not about a measurement.
+
+    It was already wrong once: the badge read 60/60 while there were 65 claims,
+    and nothing caught it until someone looked at the rendered page.
+    """
+    import re as _re
+    bad = []
+    pattern = _re.compile(r"README" + "%20" + r"claims-(\d+)" + "%2F" + r"(\d+)" + "%20" + "verified")
+    for name in ("README.md", "README.zh-CN.md"):
+        f = pathlib.Path(__file__).parent / name
+        if not f.exists():
+            continue
+        m = pattern.search(f.read_text())
+        if not m:
+            bad.append(name + ": no claim-count badge found")
+        elif int(m.group(1)) != len(CLAIMS) or int(m.group(2)) != len(CLAIMS):
+            bad.append("%s: badge says %s/%s, there are %d claims"
+                       % (name, m.group(1), m.group(2), len(CLAIMS)))
+    return bad
+
+
 def main(argv):
     lessons, paths, stable_only = set(), [], False
     for a in argv:
@@ -123,7 +152,9 @@ def main(argv):
     if missing:
         print("cannot read: %s" % ", ".join(missing)); return 2
     run = "".join(pathlib.Path(p).read_text() for p in paths)
-    bad, checked = [], 0
+    bad, checked, badge_bad = [], 0, badge_matches_claim_count()
+    for problem in badge_bad:
+        print("  BADGE  " + problem)
     for lesson, stable, claim, pattern in CLAIMS:
         if lessons and lesson not in lessons:
             continue
@@ -142,9 +173,12 @@ def main(argv):
     if not checked:
         print("  No claims matched those filters. An empty check is not a passing one.")
         return 1
-    if bad:
+    if badge_bad:
+        print("  The claim-count badge is out of date - it is checked because it was"
+              " once wrong by five.")
+    if bad or badge_bad:
         print("  Fix the README or fix the code - do not ship a claim the run does not make.")
-    return 1 if bad else 0
+    return 1 if (bad or badge_bad) else 0
 
 
 if __name__ == "__main__":
