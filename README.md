@@ -113,16 +113,21 @@ using TD-MPC2's own code and environments, loaded through their own
 
 TD-MPC2 plans by rolling its learned dynamics forward **3 steps** and scoring
 the result — on every task. Measured across 8 dm_control tasks (640 rollouts
-each), the error at exactly that horizon, as a fraction of how far the latent
-actually moves:
+each), at three model sizes, the error at exactly that horizon as a fraction of
+how far the latent actually moves:
 
-- **mt30-48M**: median **22%**, but ranging **7%** to **68%** across tasks — a
-  tenfold spread in the quantity the planner depends on, for one model.
 - **mt30-1M**: median **77%**, and on **3** of 8 tasks above **100%** — at the
   horizon it plans over, the rollout carries less information than assuming
   nothing changes at all.
-- On `cup-catch` the 48M model's predictions are past tolerance after **2**
-  steps, before its own 3-step lookahead finishes.
+- **mt30-48M**: median **22%**. Every one of those failures is gone.
+- **mt30-317M**: median **18%**. Another 6.6x the parameters buys almost
+  nothing, and **5 of the 8 tasks get worse** by 4 to 11 points against a
+  rerun spread measured at 1.8.
+
+**The spread across tasks never closes**: worst task over best runs 11.7x, 9.2x,
+**7.1x** as the model grows. Scale fixes the catastrophic cases and leaves the
+variance, and nothing in the pipeline reports either — the planner rolls the
+dynamics forward the same 3 steps on every task at every size.
 
 TD-MPC2 does log `consistency_loss` — an undivided, `rho`-discounted MSE over
 those same 3 steps, on replay batches, to wandb but not to the console or the

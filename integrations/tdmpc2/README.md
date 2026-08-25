@@ -44,34 +44,47 @@ points per episode (640 rollouts per task), 20 open-loop steps.
 ## What it found
 
 **At the horizon TD-MPC2 actually plans over, prediction quality varies about
-tenfold across tasks — for one model.**
+tenfold across tasks — and scaling the model does not close that gap.**
 
-| task | error at k=3, mt30-1M | error at k=3, mt30-48M | usable horizon, mt30-48M |
+| task | mt30-1M | mt30-48M | mt30-317M |
 |---|---|---|---|
-| cartpole-swingup | 90% | 68% | 14 |
-| walker-walk | 115% | 12% | 5 |
-| cheetah-run | 63% | 52% | 4 |
-| finger-spin | 58% | 7% | 13 |
-| reacher-easy | 41% | 30% | 11 |
-| cup-catch | 161% | 24% | 2 |
-| pendulum-swingup | 14% | 10% | 4 |
-| hopper-stand | 116% | 19% | 9 |
-| **median** | **77%** | **22%** | **7** |
+| cartpole-swingup | 90% | 68% | 79% |
+| walker-walk | 115% | 12% | 20% |
+| cheetah-run | 63% | 52% | 17% |
+| finger-spin | 58% | 7% | 11% |
+| reacher-easy | 41% | 30% | 23% |
+| cup-catch | 161% | 24% | 30% |
+| pendulum-swingup | 14% | 10% | 16% |
+| hopper-stand | 116% | 19% | 13% |
+| **median** | **77%** | **22%** | **18%** |
+| range | 14-161% | 7-68% | 11-79% |
+| worst / best | 11.7x | 9.2x | 7.1x |
 
-On the 1M model, three tasks are **above 100%**: at the horizon the planner
-scores its candidate actions over, the prediction error exceeds the distance
-the latent moves, so the rollout carries less information than assuming nothing
-changes. Four of the eight are also beaten by predicting no change at the very
-first step. Scaling to 48M fixes that — 0 of 8 beaten at one step, and the
-worst case falls from 161% to 68% — but the spread across tasks stays wide,
-7% to 68%.
+Read down the columns and the story is in two halves.
 
-The usable horizon behaves the same way. For mt30-48M the median runs from 2
-steps (`cup-catch`) to 14 (`cartpole-swingup`). On `cup-catch` the predictions
-are past tolerance before the planner's own 3-step lookahead finishes.
+**1M to 48M is a real fix.** The median falls from 77% to 22%, and the three
+tasks **above 100%** — where the prediction error at the planner's horizon
+exceeds the distance the latent actually moves, so the rollout carries less
+information than assuming nothing changes — all disappear. So do the four tasks
+where the model was beaten by predicting no change at the very first step.
 
-None of this is visible in the reward curve, and none of it is a number the
-codebase produces.
+**48M to 317M is not.** Another 6.6x the parameters moves the median from 22%
+to 18%, and **five of the eight tasks get worse**: cartpole-swingup +11,
+walker-walk +8, cup-catch +6, pendulum-swingup +5, finger-spin +4 percentage
+points, against a rerun spread measured at 1.8 points at most (see Caveats).
+Only cheetah-run gains much (-35). On `cartpole-swingup` the 317M model is
+beaten by predicting no change at the first step, which the 48M model was not:
+its one-step error is 150% of the distance the latent travels.
+
+**The spread never closes.** Worst-task over best-task runs 11.7x, 9.2x, 7.1x
+across the three sizes. Whatever makes `cartpole-swingup` hard for this model
+is not a capacity problem, and nothing in the pipeline reports it: the planner
+rolls the dynamics forward the same 3 steps on every task at every model size.
+
+The usable horizon tells the same story within each model — for mt30-48M the
+median runs from 2 steps (`cup-catch`) to 14 (`cartpole-swingup`) — but its
+tolerance is derived from that model's own error distribution, so it compares
+tasks within a model and not models against each other.
 
 ## Reproducing it
 
@@ -160,14 +173,16 @@ run these checkpoints.
 
 ## Caveats
 
-- 8 of the 30 mt30 tasks, 10 episodes each.
+- 8 of the 30 mt30 tasks, 10 episodes each. Each model size was run once,
+  except mt30-48M, which was run twice to measure the spread below.
 - **Reruns are not bit-identical.** MPPI amplifies GPU floating-point
   nondeterminism into different action sequences, so two runs of this script
   with the same seed visit different states. Measured on mt30-48M, the per-task
   percentages moved by at most 1.8 points and 0.6 on average, and the median
   across tasks did not move at all (22% both times; the range read 8-70% and
-  7-68%). Read the individual percentages to the nearest few points and the
-  tenfold spread as the finding.
+  7-68%). Read the individual percentages to the nearest few points, the
+  48M-to-317M regressions (4 to 11 points) as outside that, and the spread
+  across tasks as the finding.
 - Trajectories come from the agent's own planner, so this is prediction quality
   on the states the agent actually visits — the relevant distribution for
   planning, and not the same as replay-buffer error.

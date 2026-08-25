@@ -86,7 +86,7 @@ def main(cfg):
     print("  trained horizon %d   (consistency_coef %s - the largest term in their loss)"
           % (cfg.horizon, cfg.consistency_coef))
     print("  diagnosing %d tasks, %d-step open-loop rollouts from %d starts each\n"
-          % (len(tasks), K, STARTS))
+          % (len(tasks), K, STARTS), flush=True)
 
     rows, store = [], {}
     for task in tasks:
@@ -114,7 +114,9 @@ def main(cfg):
                      int((e_m < e_n).sum()), e_m[H] / max(e_n[H], 1e-12)))
         store[task] = np.stack([e_m, e_n])
         store["horizon__" + task] = np.array([h["p5"], h["p50"], h["p95"]])
-        print("  %-22s %d episodes, %d rollouts" % (task, len(Ps), len(P)))
+        # A 317M model takes tens of minutes per task, so this line has to
+        # arrive when the task finishes rather than when the buffer fills.
+        print("  %-22s %d episodes, %d rollouts" % (task, len(Ps), len(P)), flush=True)
 
     print("\n  %-20s %-20s %-20s %s"
           % ("task", "usable horizon", "beats 'no change'", "error at k=%d, as %% of" % cfg.horizon))

@@ -123,19 +123,20 @@ def _tdmpc2_facts():
     """
     import numpy as np
     d = pathlib.Path(__file__).parent / "integrations" / "tdmpc2"
-    facts = {}
-    for size in ("1M", "48M"):
+    facts, ratios = {}, {}
+    for size in ("1M", "48M", "317M"):
         f = d / ("results_mt30-%s.npz" % size)
         if not f.exists():
             return None
         r = np.load(f)
         tasks = [t for t in r.files if not t.startswith("horizon__")]
-        ratio = np.array([100 * r[t][0][PLAN_H - 1] / max(r[t][1][PLAN_H - 1], 1e-12)
-                          for t in tasks])
-        hz = np.array([r["horizon__" + t][1] for t in tasks])   # median horizon
-        facts[size] = dict(median=float(np.median(ratio)), lo=float(ratio.min()),
-                           hi=float(ratio.max()), over=int((ratio > 100).sum()),
-                           n=len(tasks), h_lo=float(hz.min()), h_hi=float(hz.max()))
+        v = {t: 100 * r[t][0][PLAN_H - 1] / max(r[t][1][PLAN_H - 1], 1e-12) for t in tasks}
+        ratios[size] = v
+        a = np.array([v[t] for t in tasks])
+        facts[size] = dict(median=float(np.median(a)), lo=float(a.min()), hi=float(a.max()),
+                           spread=float(a.max() / a.min()), over=int((a > 100).sum()),
+                           n=len(tasks))
+    facts["regressions"] = sum(1 for t in ratios["48M"] if ratios["317M"][t] > ratios["48M"][t])
     return facts
 
 
@@ -143,14 +144,18 @@ def integration_claims(facts):
     """(name, {readme: regex}) for every TD-MPC2 number the READMEs quote."""
     b = lambda x: r"\*\*%s\*\*" % re.escape(x)
     both = lambda pat: {"README.md": pat, "README.zh-CN.md": pat}
-    f1, f48 = facts["1M"], facts["48M"]
+    f1, f48, f317 = facts["1M"], facts["48M"], facts["317M"]
     return [
-        ("mt30-48M median error at k=3",  both(b("%.0f%%" % f48["median"]))),
-        ("mt30-48M lowest task",          both(b("%.0f%%" % f48["lo"]))),
-        ("mt30-48M highest task",         both(b("%.0f%%" % f48["hi"]))),
         ("mt30-1M median error at k=3",   both(b("%.0f%%" % f1["median"]))),
+        ("mt30-48M median error at k=3",  both(b("%.0f%%" % f48["median"]))),
+        ("mt30-317M median error at k=3", both(b("%.0f%%" % f317["median"]))),
         ("mt30-1M tasks over 100%",       both(b(str(f1["over"])) + r"[^\n]{0,12}(?:of 8|/ ?8| 个)")),
-        ("mt30-48M shortest horizon",     both(b("%.0f" % f48["h_lo"]) + r"\s*\n?\s*(?:steps|步)")),
+        ("spread still %.1fx at 317M" % f317["spread"],
+         {"README.md": b("%.1fx" % f317["spread"]),
+          "README.zh-CN.md": b("%.1f 倍" % f317["spread"])}),
+        ("tasks worse at 317M than 48M",
+         {"README.md": b("%d of the 8 tasks get worse" % facts["regressions"]),
+          "README.zh-CN.md": b("8 个任务里有 %d 个反而变差" % facts["regressions"])}),
         ("8 tasks were measured",         both(r"8 dm_control (?:tasks|任务)|8 个 dm_control")),
     ]
 
