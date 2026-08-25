@@ -116,7 +116,11 @@ def frame(k):
     return drawn + [cA, cB, step_txt]
 
 
-FuncAnimation(fig, frame, frames=K, blit=False).save(
+# Hold the final frame for about a second. A loop that snaps back the instant
+# it finishes leaves the viewer with the first frame, and the first frame here
+# is two pendulums in the same place - which is true, and says nothing.
+HOLD = 16
+FuncAnimation(fig, lambda k: frame(min(k, K - 1)), frames=K + HOLD, blit=False).save(
     FIG / "drift.gif", writer=PillowWriter(fps=16), dpi=88)
 plt.close(fig)
 print("  wrote figures/drift.gif")
@@ -229,7 +233,8 @@ def frame6(k):
     return imL, imR, lr, lp, cap
 
 
-FuncAnimation(fig, frame6, frames=len(fr_plan), blit=False).save(
+NF = len(fr_plan)
+FuncAnimation(fig, lambda k: frame6(min(k, NF - 1)), frames=NF + 14, blit=False).save(
     FIG / "arm.gif", writer=PillowWriter(fps=12), dpi=80)
 plt.close(fig)
 print("  wrote figures/arm.gif")

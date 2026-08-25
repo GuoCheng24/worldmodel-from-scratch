@@ -35,8 +35,8 @@
 | | 别处发生的 | 这里 |
 |---|---|---|
 | **装** | `mujoco.FatalError: gladLoadGL`、`No module named gym.envs.atari`、`Installation broken again` | **`torch`、`numpy`、`matplotlib`。** 第 1–4 课的依赖就这三个。第 5–6 课加 `gymnasium` 和 `mujoco`,那个让它们能跑起来的环境变量已写明并实测。 |
-| **训** | 要几天 GPU,issue 标题是 *"Can you share checkpoint of trained models?"* | 单卡 **11 秒和 51 秒**。没有任何东西要下载。 |
-| **读** | issue 标题是 *"Add project explanation"*、*"Why is dyn_discrete always True?"* | 全仓 500 行,注释解释的是**为什么**这样写,不是这行在干嘛。 |
+| **训** | 要几天 GPU,issue 标题是 *"Can you share checkpoint of trained models?"* | 单卡**约 10 秒和 50 秒**,两课加起来不到一分钟。没有任何东西要下载。 |
+| **读** | issue 标题是 *"Add project explanation"*、*"Why is dyn_discrete always True?"* | 你真正要读的库是 **691 行**;每一课再 60–260 行且互相独立。注释解释的是**为什么**这样写,不是这行在干嘛。 |
 | **坏** | —— | **这才是这个仓存在的理由。** |
 
 ## 快速开始
@@ -61,7 +61,7 @@ python make_visuals.py                             # 重画上面的动图
 
 ```bash
 for f in lessons/*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
-python check_claims.py /tmp/0*.txt        # 40/40 条 README 断言有输出支撑
+python check_claims.py /tmp/0*.txt        # 65/65 条 README 断言有输出支撑
 ```
 
 没有 `--config`,没有下载,没有环境变量。`torch` 能 import 就能跑。
@@ -98,25 +98,27 @@ python check_claims.py /tmp/0*.txt        # 40/40 条 README 断言有输出支�
 
 ### 你报哪种平均,答案就不一样,而且差别不小
 
-上面用的是**中位**轨迹。把同样这 1000 条 rollout 改用**均值**汇总,
-拟合出的曲线就不再是幂律,而变成指数——**同一批数据,不同的函数形式。**
-
-原因具体且值得一看:随机力矩驱动的摆可能被推过顶点;一旦模型和真值落在
-相反的分支上,误差就是 O(π) 量级并且回不来。到第 90 步,**14% 的 rollout 已经换支**。
-均值曲线描述的主要就是这 14%。**典型的那条 rollout,从来不像均值说的那样。**
-
-同样的效应在 Lorenz 上直接影响到增长率本身:
+上面用的是**中位**轨迹。在 Lorenz 上——那里增长率本身就是被争论的量——
+同一批 rollout 用三种方式汇总:
 
 | | 中位数 | 几何平均 | 算术平均 |
 |---|---|---|---|
 | A 只扰动一次,真实动力学 | **+0.5%** | −1.9% | −6.9% |
 | B 世界模型 rollout | **+0.2%** | −1.5% | **+10.8%** |
 
-<sub>拟合增长率相对实测 Lyapunov 指数的偏离。</sub>
+<sub>拟合增长率相对实测 Lyapunov 指数的偏离。均值的误差在另一台机器上复现为 −7.1% 与 +12.3%。</sub>
 
 **只有中位数在两条曲线上都还原出 λ**,而均值对两条曲线的偏离**方向相反**,
 因此这不是一个事后能校正的偏差。如果你用平均 rollout 误差给世界模型做 benchmark,
 这是一笔你在付、却没有报告的成本。
+
+**机制是具体的。** 随机力矩驱动的摆可能被推过顶点;一旦模型和真值落在相反分支上,
+误差就是 O(π) 量级并且回不来。到第 90 步,**14% 的 rollout 已经换支**。
+均值曲线描述的主要就是这 14%,而**典型的那条从来不像均值说的那样**——上面那张动图演的就是这个。
+
+在摆上,这有时会进一步表现为两种汇总给出**不同的函数形式**(中位是幂律、均值是指数)。
+**但那一条不可靠:跨六个种子只出现两次。** 写在这里是因为它值得你在自己的系统上查一下,
+不是因为它是世界模型的性质。
 
 ### 那么到底是什么决定了增长率
 

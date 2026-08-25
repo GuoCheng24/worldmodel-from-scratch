@@ -39,8 +39,8 @@ go wrong, and they show up in their issue trackers verbatim:
 | | what happens | here |
 |---|---|---|
 | **Install** | `mujoco.FatalError: gladLoadGL`, `No module named gym.envs.atari`, `Installation broken again` | **`torch`, `numpy`, `matplotlib`.** That is the whole dependency list for Lessons 1–4. Lessons 5–6 add `gymnasium` and `mujoco`, with the one environment variable that makes them work spelled out and tested. |
-| **Train** | days of GPU time, and issues titled *"Can you share checkpoint of trained models?"* | **11 s and 51 s** on one GPU. Nothing to download. |
-| **Read** | issues titled *"Add project explanation"*, *"Why is dyn_discrete always True?"* | 500 lines total, commented for why rather than what. |
+| **Train** | days of GPU time, and issues titled *"Can you share checkpoint of trained models?"* | **about 10 s and 50 s** on one GPU, together under a minute. Nothing to download. |
+| **Read** | issues titled *"Add project explanation"*, *"Why is dyn_discrete always True?"* | The library you have to read is **691 lines**; each lesson is a standalone 60-260 more. Commented for why rather than what. |
 | **Break** | — | **This is the point of the repo.** |
 
 ## Quick start
@@ -66,7 +66,7 @@ claim rather than take it:
 
 ```bash
 for f in lessons/*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
-python check_claims.py /tmp/0*.txt        # 40/40 README claims backed
+python check_claims.py /tmp/0*.txt        # 65/65 README claims backed
 ```
 
 No `--config`, no download, no environment variables. If `torch` imports, it runs.
@@ -115,29 +115,33 @@ watching is errors **accumulating**, not compounding.
 
 ### The average you report changes the answer, and it is not a small effect
 
-Everything above used the **median** trajectory. Summarise the same 1000
-rollouts by their **mean** and the fitted curve stops being a power law and
-becomes an exponential — a different functional form, from the same data.
-
-The cause is concrete and worth seeing. A pendulum driven by random torque can
-be pushed over the top; once model and truth are on opposite branches the error
-is O(π) and stays there. By step 90, **14% of rollouts have switched branch**.
-Those 14% are what the mean curve is mostly describing. The typical rollout
-never does what the mean says it does.
-
-The same effect shows up on Lorenz, where the growth rate itself is at stake:
+Everything above used the **median** trajectory. On Lorenz, where the growth
+rate itself is at stake, summarising the same rollouts three ways gives:
 
 | | median | geometric mean | arithmetic mean |
 |---|---|---|---|
 | A perturb once, true dynamics | **+0.5%** | −1.9% | −6.9% |
 | B world-model rollout | **+0.2%** | −1.5% | **+10.8%** |
 
-<sub>Deviation of the fitted growth rate from the measured Lyapunov exponent.</sub>
+<sub>Deviation of the fitted growth rate from the measured Lyapunov exponent.
+The mean's error reproduced on a different machine at −7.1% and +12.3%.</sub>
 
 Only the median recovers λ for both, and the mean errs in *opposite directions*
 for the two curves, so it is not a bias you can correct for after the fact. If
 you benchmark a world model on mean rollout error, this is a cost you are
 paying and not reporting.
+
+**The mechanism is concrete.** A pendulum driven by random torque can be pushed
+over the top; once model and truth are on opposite branches the error is O(π)
+and stays there. By step 90, **14% of rollouts have switched branch**. Those
+14% are what the mean curve is mostly describing, and the typical rollout never
+does what the mean says it does — which is what the animation above shows.
+
+On the pendulum this sometimes goes further and the two summaries give
+different functional *forms*, the median a power law and the mean an
+exponential. That one is not reliable: across six seeds it happened twice.
+Reported here because it is worth checking on your own system, not because it
+is a property of world models.
 
 ### What actually sets the rate
 
