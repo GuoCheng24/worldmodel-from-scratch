@@ -238,3 +238,32 @@ FuncAnimation(fig, lambda k: frame6(min(k, NF - 1)), frames=NF + 14, blit=False)
     FIG / "arm.gif", writer=PillowWriter(fps=12), dpi=80)
 plt.close(fig)
 print("  wrote figures/arm.gif")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 3. arm-still.png - the same comparison, for wherever animation does not play
+# ══════════════════════════════════════════════════════════════════════════
+# GitHub marks animated images with data-animated-image and wraps them in a
+# play/pause control. A reader who has asked for reduced motion, or who is
+# looking at a mirror, a PDF or a feed reader, sees the first frame only - and
+# the first frame here is two arms in the same pose, which is true and useless.
+# This is the same run, sampled at three moments, and it stands on its own.
+picks = [0, len(fr_plan) // 3, len(fr_plan) - 1]
+figs, axs = plt.subplots(2, 3, figsize=(9.6, 5.3))
+for col, k in enumerate(picks):
+    for row, (frames, dist, label, col_c) in enumerate((
+            (fr_rand, d_rand, "random actions", INK),
+            (fr_plan, d_plan, "planning with the learned model", BLUE))):
+        ax = axs[row, col]
+        ax.imshow(frames[k]); ax.axis("off")
+        ax.set_title("step %d      tip to target %.3f" % (k, dist[k]),
+                     fontsize=8.6, color=col_c, pad=3)
+        if col == 0:
+            ax.text(-0.06, 0.5, label, transform=ax.transAxes, rotation=90,
+                    va="center", ha="center", fontsize=9.5, color=col_c)
+figs.suptitle("A two-link arm reaching a target, planned inside a model learned from random play",
+              fontsize=11, color=INK, y=0.975)
+figs.tight_layout(rect=[0.015, 0, 1, 0.95])
+figs.savefig(FIG / "arm-still.png", dpi=110, bbox_inches="tight", facecolor="white")
+plt.close(figs)
+print("  wrote figures/arm-still.png")

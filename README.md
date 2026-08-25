@@ -13,13 +13,15 @@ build one. This one is about the half nobody teaches: **how far you can trust
 the thing once it is built, and what actually governs that.**
 
 <p align="center">
-  <img src="figures/arm.gif" width="86%">
+  <img src="figures/arm-still.png" width="94%">
 </p>
 
-<sub>A MuJoCo arm reaching a target, planned entirely inside a model learned from
-random play with no reward signal during training — and the same planner given
-random actions instead. Produced by <code>make_visuals.py</code>; Lesson 6 is
-where it comes from.</sub>
+<sub>A MuJoCo arm reaching a target (the small red dot), planned entirely inside
+a model learned from random play with no reward signal during training — and the
+same planner given random actions instead. Both start in the same pose. Lesson 6
+is where this comes from, and <code>make_visuals.py</code> also writes it as an
+animation, shown there. This still is here because GitHub wraps animated images
+in a play control, so a reader who has asked for reduced motion sees one frame.</sub>
 
 <p align="center">
   <img src="figures/rollout-error.png" width="100%">
@@ -363,6 +365,10 @@ an arm the two coincide and the bound is merely loose. On a leg they differ by
 
 **Can a learned world model actually drive the arm?** Reacher, from a random-play
 dataset with no reward signal during training:
+
+<p align="center">
+  <img src="figures/arm.gif" width="86%">
+</p>
 
 | planner | reward/step | final fingertip-to-target |
 |---|---|---|

@@ -12,11 +12,13 @@
 以及这件事到底由什么决定。**
 
 <p align="center">
-  <img src="figures/arm.gif" width="86%">
+  <img src="figures/arm-still.png" width="94%">
 </p>
 
-<sub>一条 MuJoCo 机械臂够向目标点,全程在一个<b>从随机游玩数据里学来、训练期间没有任何奖励信号</b>的模型内部完成规划;
-右边是同一个规划器换成随机动作。由 <code>make_visuals.py</code> 产生,出处是第 6 课。</sub>
+<sub>一条 MuJoCo 机械臂够向目标(那个小红点),全程在一个<b>从随机游玩数据里学来、训练期间没有任何奖励信号</b>的模型内部完成规划;
+上一行是同一个规划器换成随机动作。两行起点相同。出处是第 6 课,
+<code>make_visuals.py</code> 同时会生成动图版本(放在第 6 课那一节)。
+这里用静态图,是因为 <b>GitHub 会给动图套上播放控件</b>——开了"减少动态效果"的读者只看得到一帧。</sub>
 
 <p align="center">
   <img src="figures/rollout-error.png" width="100%">
@@ -301,6 +303,10 @@ export MUJOCO_GL=egl        # 必须在 import mujoco 或 gymnasium 之前
 在臂上两者重合,界只是松;**在腿上两者每步差 5–11 倍**,这就是第 5 课看到它第 2 步就报废的原因。
 
 **学到的世界模型能不能真的驱动这条臂?** Reacher,数据来自随机游玩,训练期间没有任何奖励信号:
+
+<p align="center">
+  <img src="figures/arm.gif" width="86%">
+</p>
 
 | 规划器 | 每步回报 | 终态指尖-目标距离 |
 |---|---|---|
