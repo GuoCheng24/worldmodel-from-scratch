@@ -194,3 +194,98 @@ class TestPlanningMetrics:
             rho, _ = wm.rank_fidelity(step, step, lambda s, u: -s.norm(dim=-1),
                                       s0, 4, n_candidates=16, action_dim=A)
             assert rho > 0.99
+
+
+class TestDiagnose:
+    """The one-call report is the part someone will point at their own model, so
+    it is the part that must refuse to invent a number."""
+
+    @staticmethod
+    def _synthetic(rate=0.9, dt=0.01, K=400, N=200, noise=0.25, seed=0):
+        rng = np.random.default_rng(seed)
+        t = np.arange(1, K + 1) * dt
+        th = rng.uniform(0, 2 * np.pi, (N, K))
+        true = np.stack([np.cos(th), np.sin(th), np.zeros_like(th)], -1)
+        mag = (3e-4 * np.exp(rate * t))[None, :] * np.exp(rng.normal(0, noise, (N, K)))
+        u = rng.standard_normal((N, K, 3)); u /= np.linalg.norm(u, axis=-1, keepdims=True)
+        return true + mag[..., None] * u, true
+
+    def test_it_recovers_a_growth_rate_it_was_given(self):
+        pred, true = self._synthetic(rate=0.9)
+        r = wm.diagnose(pred, true, dt=0.01, lam=0.9, n_boot=120)
+        lo, hi = r["rates"]["median"]["exp_rate_ci"]
+        assert lo <= 0.9 <= hi, "interval [%.4f, %.4f] misses 0.9" % (lo, hi)
+        assert r["shape"]["verdict"] == "exponential"
+
+    def test_a_clean_measurement_carries_no_caveats(self):
+        pred, true = self._synthetic()
+        assert wm.diagnose(pred, true, dt=0.01, n_boot=120)["warnings"] == []
+
+    def test_identical_arrays_are_named_as_such(self):
+        _, true = self._synthetic()
+        r = wm.diagnose(true, true)
+        assert "identical" in str(r)
+        assert r["rates"] == {}
+
+    def test_truth_with_no_scale_is_refused(self):
+        """Centred residuals passed as states used to yield a tolerance of
+        800000000000% of the state size, printed without complaint."""
+        with pytest.raises(ValueError, match="norm ~0"):
+            wm.diagnose(np.ones((5, 10, 3)), np.zeros((5, 10, 3)))
+
+    def test_mismatched_shapes_are_refused(self):
+        with pytest.raises(ValueError, match="same shape"):
+            wm.diagnose(np.ones((5, 10, 3)), np.ones((5, 11, 3)))
+
+    def test_a_censored_horizon_is_declared_not_quoted(self):
+        pred, true = self._synthetic()
+        r = wm.diagnose(pred, true, dt=0.01, tol=1e9, n_boot=60)
+        assert r["censored"] == 1.0
+        assert any("censored" in w for w in r["warnings"])
+
+    def test_lambda_with_an_error_bar_is_compared_as_an_interval(self):
+        """A measured lambda is an estimate, so comparing a fit interval against
+        it as a point manufactures disagreements. The Lorenz example lands 1.6%
+        below a lambda of 0.9046 whose own sd is 0.043: a real agreement that
+        the point comparison called a miss."""
+        pred, true = self._synthetic(rate=0.9)
+        point = wm.diagnose(pred, true, dt=0.01, lam=0.80, n_boot=120)
+        wide = wm.diagnose(pred, true, dt=0.01, lam=(0.80, 0.10), n_boot=120)
+        assert "does not cover it" in str(point)
+        assert "agrees within" in str(wide)
+        # A wide error bar must not turn every gap into agreement.
+        near = wm.diagnose(pred, true, dt=0.01, lam=(0.80, 0.0005), n_boot=120)
+        assert "disagrees beyond" in str(near)
+
+    def test_a_malformed_lambda_pair_is_refused(self):
+        pred, true = self._synthetic()
+        with pytest.raises(ValueError, match="value, sd"):
+            wm.diagnose(pred, true, dt=0.01, lam=(0.9, 0.1, 0.2), n_boot=60)
+
+    def test_a_refused_fit_prints_no_nan(self):
+        """When there is too little dynamic range to fit anything, the report
+        has to say so. Printing `residuals exp nan / pow nan` reads like a
+        failed computation rather than a deliberate refusal."""
+        pred, true = self._synthetic(K=6, N=40, noise=0.02)
+        r = wm.diagnose(pred, true, dt=0.01, n_boot=60)
+        text = str(r)
+        assert "nan" not in text, text
+        assert "not fitted" in text
+        # And the refusal has to reach the caveats: this printed "no caveats:
+        # ... the shape fit are all clean" about a fit that never ran.
+        assert "no caveats" not in text, text
+        assert any("not fitted" in w for w in r["warnings"]), r["warnings"]
+
+    def test_the_summary_disagreement_is_surfaced(self):
+        """Heteroscedastic noise makes mean, median and geometric mean disagree.
+        That disagreement is the finding, so it has to reach the reader."""
+        rng = np.random.default_rng(1)
+        K, N, dt = 400, 300, 0.01
+        t = np.arange(1, K + 1) * dt
+        th = rng.uniform(0, 2 * np.pi, (N, K))
+        true = np.stack([np.cos(th), np.sin(th), np.zeros_like(th)], -1)
+        widening = 0.05 + 1.2 * t
+        mag = (3e-4 * np.exp(0.9 * t))[None, :] * np.exp(rng.normal(0, 1, (N, K)) * widening)
+        u = rng.standard_normal((N, K, 3)); u /= np.linalg.norm(u, axis=-1, keepdims=True)
+        r = wm.diagnose(true + mag[..., None] * u, true, dt=dt, n_boot=120)
+        assert any("summarise" in w for w in r["warnings"]), r["warnings"]

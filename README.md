@@ -1,6 +1,6 @@
 # worldmodel-from-scratch
 
-[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-65%2F65%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-72%2F72%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Build a world model in an afternoon — then find out where it breaks.**
 
@@ -45,6 +45,96 @@ go wrong, and they show up in their issue trackers verbatim:
 | **Read** | issues titled *"Add project explanation"*, *"Why is dyn_discrete always True?"* | The library you have to read is **691 lines**; each lesson is a standalone 60-260 more. Commented for why rather than what. |
 | **Break** | — | **This is the point of the repo.** |
 
+## `wm.diagnose()` — the number the reference implementations do not give you
+
+DreamerV3 logs open-loop prediction as a *picture*: six sequences, five steps of
+context, the rest imagined, rendered next to the truth with a green-to-red
+border where imagination begins, for a human to look at. The official JAX
+implementation and the most-used PyTorch port do this identically, and no scalar
+leaves the function. TD-MPC2 does report one — `consistency_loss`, an undivided,
+`rho`-discounted MSE over its 3-step training horizon, on replay batches, to
+wandb but not to the console and not to the saved CSV. None of the three answers
+*how many steps ahead is this model still worth trusting, here.*
+
+So this repo writes it once. Two arrays in, one report out; it never touches
+your model, so it does not care what framework it is in or whether it predicts
+states, latents or flattened pixels.
+
+```python
+lam, sd = wm.lyapunov(lorenz, n=300, steps=4000, rng=rng)   # measured, not assumed
+report  = wm.diagnose(pred, true, dt=lorenz.dt, lam=(lam, sd))
+print(report)          # also a dict: report["horizon"]["p50"]
+```
+
+`pred` and `true` are `(n_trajectories, n_steps, state_dim)` — your rollout and
+the truth it was supposed to match, from the same starts under the same actions.
+On the Lorenz model from Lesson 2 (the whole run is
+[`examples/diagnose_lorenz.py`](examples/diagnose_lorenz.py), and this is its
+output verbatim):
+
+```
+world model rollout diagnosis   600 trajectories x 900 steps, state dim 3
+
+  usable horizon   tolerance 2.787 (10.6% of typical state size)
+      5th 333    median 590    95th 853    spread 2.6x    [3% censored]
+
+  growth shape     residuals exp 0.187 / pow 0.797, ratio 4.26 -> exponential
+      4.3 decades of range before saturation
+
+  growth rate      by how you summarise trajectories
+      median     0.8899  95%CI [0.8784, 0.9004]   -1.6% vs lambda, agrees within lambda's own +-0.084
+      geometric  0.8886  95%CI [0.8745, 0.9034]   -1.8% vs lambda, agrees within lambda's own +-0.084
+      mean       0.9645  95%CI [0.9282, 1.0211]   +6.6% vs lambda, agrees within lambda's own +-0.084
+
+  read with care
+      - the fitted rate moves by 9% depending on whether you summarise
+        trajectories by mean, median or geometric mean
+```
+
+The last block is the part that matters. It will not hand you a number it cannot
+stand behind: if too many trajectories never cross the tolerance it says the
+horizon is censored rather than quoting a percentile; if the exponential and
+power-law fits are within 50% of each other it says **ambiguous** instead of
+picking a winner; and it reports all three summaries because which one you pick
+moves the answer by more than most of the effects people publish. This
+repository shipped both of those mistakes before the guards existed — the
+guards are the fix, kept.
+
+## It runs on a published model, not only on these
+
+`wm.diagnose()` takes two arrays and knows nothing about your model, so it runs
+on somebody else's. Here it is on **TD-MPC2's released `mt30` checkpoints**,
+using TD-MPC2's own code and environments, loaded through their own
+`load_state_dict` with `strict=True`.
+
+<p align="center">
+  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
+</p>
+
+TD-MPC2 plans by rolling its learned dynamics forward **3 steps** and scoring
+the result — on every task. Measured across 8 dm_control tasks (640 rollouts
+each), the error at exactly that horizon, as a fraction of how far the latent
+actually moves:
+
+- **mt30-48M**: median **22%**, but ranging **7%** to **68%** across tasks — a
+  tenfold spread in the quantity the planner depends on, for one model.
+- **mt30-1M**: median **77%**, and on **3** of 8 tasks above **100%** — at the
+  horizon it plans over, the rollout carries less information than assuming
+  nothing changes at all.
+- On `cup-catch` the 48M model's predictions are past tolerance after **2**
+  steps, before its own 3-step lookahead finishes.
+
+TD-MPC2 does log `consistency_loss` — an undivided, `rho`-discounted MSE over
+those same 3 steps, on replay batches, to wandb but not to the console or the
+saved CSV. It is a training loss with no readable scale, and nothing in the
+codebase answers *how many steps ahead is this model worth trusting, here*.
+
+Rerunning it takes two commands: **[integrations/tdmpc2/](integrations/tdmpc2/)**
+has the pinned environment, the exact invocations, and a second finding — 14 of
+the 312 released *single-task* checkpoints are stored in an older parameter
+layout and raise a `RuntimeError` with the current code, one no commit in the
+public history produces. The other 298 load and run.
+
 ## Quick start
 
 ```bash
@@ -68,7 +158,7 @@ claim rather than take it:
 
 ```bash
 for f in lessons/*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
-python check_claims.py /tmp/0*.txt        # 65/65 README claims backed
+python check_claims.py /tmp/0*.txt        # 72/72 README claims backed
 ```
 
 No `--config`, no download, no environment variables. If `torch` imports, it runs.
@@ -372,11 +462,11 @@ dataset with no reward signal during training:
 
 | planner | reward/step | final fingertip-to-target |
 |---|---|---|
-| random actions | −0.1933 | — |
-| world model, H=3 | −0.0301 | 0.0004 |
-| **world model, H=5** | **−0.0213** | 0.0009 |
-| world model, H=20 | −0.0361 | 0.0100 |
-| world model, H=40 | −0.0478 | 0.0188 |
+| random actions | −0.2045 | — |
+| world model, H=3 | −0.0271 | 0.0005 |
+| **world model, H=5** | **−0.0207** | 0.0009 |
+| world model, H=20 | −0.0341 | 0.0076 |
+| world model, H=40 | −0.0451 | 0.0243 |
 
 **The horizon the task wants is 5 here, where the pendulum swing-up needed 25.**
 Both are the task's answer: a swing-up must pump energy over many steps before
@@ -445,13 +535,14 @@ Every claim in `check_claims.py` is marked **stable** or not:
 
 | | runs in CI | checked before release |
 |---|---|---|
-| 24 library controls (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
+| 34 library controls (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
 | Lessons 1–2, **stable claims** | ✓ | ✓ |
+| 7 TD-MPC2 numbers, recomputed from the committed `.npz` | ✓ needs neither GPU nor checkpoint | ✓ |
 | Lessons 1–2, recorded numbers | ✗ different CPU | ✓ |
 | Lessons 3–6 | ✗ wants a GPU or MuJoCo | ✓ |
 
 ```bash
-python check_claims.py /tmp/0*.txt                 # 65/65 against the recorded run
+python check_claims.py /tmp/0*.txt                 # 72/72 against the recorded run
 python check_claims.py --stable-only /tmp/0*.txt   # what should hold anywhere
 ```
 
@@ -479,13 +570,19 @@ verdict.
 
 ## Honest scope
 
-These are 2-D and 3-D systems with fully observed states. They are chosen
-because the true dynamics are known exactly, which is what makes "how wrong is
-the model" a question with an answer. **Nothing here has yet been checked on a
-pixel-based world model, on DreamerV3 or TD-MPC2, or on a robot task** — that
-is Lessons 5 and 6, and until they exist the findings should be read as
-precise statements about a setting where everything is measurable, not as
-established facts about video world models.
+The lessons use 2-D and 3-D systems with fully observed states, chosen because
+the true dynamics are known exactly — which is what makes "how wrong is the
+model" a question with an answer. Lessons 5 and 6 carry that into MuJoCo, and
+[integrations/tdmpc2/](integrations/tdmpc2/) carries `wm.diagnose()` onto a
+published latent-space world model.
+
+**What has still not been checked is a pixel-based world model, or DreamerV3.**
+The findings about growth shape and rate should be read as precise statements
+about a setting where everything is measurable, not as established facts about
+video world models. The TD-MPC2 run measures a real model but shares one of its
+limits: with no decoder, encoder drift and dynamics error are not separable, so
+what is reported there is the two together — which is also what the planner
+gets.
 
 ## Related work, and what it is good for
 

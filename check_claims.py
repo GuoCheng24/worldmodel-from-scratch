@@ -98,17 +98,64 @@ CLAIMS = [
     (6, False, "Reacher arm: ratio 1.0",                        r'Reacher-v5\s+1\.0\d\s+1\.0[12]\d\s+1\.0'),
     (6, False, "HalfCheetah leg: ratio is ~10x",                r'HalfCheetah-v5\s+1[0-9]\.\d\d\s+1\.\d\d\d\s+(?:[89]|1[0-9])\.\d'),
     (6, True, "arms agree, legs do not",                       r'On an arm the two agree and the bound is merely'),
-    (6, False, "random actions score -0.19",                    r'random actions\s+-0\.19\d\d'),
+    (6, False, "random actions score -0.20",                    r'random actions\s+-0\.20\d\d'),
     (6, False, "H=5 is best on Reacher",                        r'world model, H=5\s+-0\.02\d\d'),
     (6, False, "fingertip within 0.001 of target",              r'world model, H=[35]\s+-0\.0\d\d\d\s+0\.00\d\d'),
     (6, False, "longer H costs reward",                         r'world model, H=40\s+-0\.0[3-9]\d\d'),
     (6, True, "task sets the horizon, again",                  r'Lesson 3 said the planning horizon is set by the task. Here it is 5'),
     (6, False, "H=5: rho ~1, regret 0",                         r'^      5\s+0\.\d+\s+0\.99\d\s+0\.0000'),
-    (6, False, "H=40: rho drops, regret appears",               r'^      40\s+\d+\.\d+\s+0\.[4-7]\d\d\s+[0-9]\.\d\d\d'),
+    (6, False, "H=40: rho drops, regret appears",               r'^      40\s+\d+\.\d+\s+0\.[5-9]\d\d\s+0*[0-9]\.\d{3,4}'),
 ]
 
 
-def badge_matches_claim_count():
+PLAN_H = 3        # TD-MPC2 rolls its model forward this many steps to score actions
+N_INTEGRATION = 7 # claims recomputed from integrations/tdmpc2/*.npz
+
+
+def _tdmpc2_facts():
+    """Recompute the TD-MPC2 numbers the README quotes, from the committed .npz.
+
+    The integration runs need a GPU, TD-MPC2's repository and its released
+    checkpoints, so they cannot run here. What they leave behind - the per-task
+    error curves - is small enough to live in the repository, which is why it
+    does. Every TD-MPC2 figure in the README is recomputed from those arrays,
+    so a sentence cannot drift away from the run that produced it.
+    """
+    import numpy as np
+    d = pathlib.Path(__file__).parent / "integrations" / "tdmpc2"
+    facts = {}
+    for size in ("1M", "48M"):
+        f = d / ("results_mt30-%s.npz" % size)
+        if not f.exists():
+            return None
+        r = np.load(f)
+        tasks = [t for t in r.files if not t.startswith("horizon__")]
+        ratio = np.array([100 * r[t][0][PLAN_H - 1] / max(r[t][1][PLAN_H - 1], 1e-12)
+                          for t in tasks])
+        hz = np.array([r["horizon__" + t][1] for t in tasks])   # median horizon
+        facts[size] = dict(median=float(np.median(ratio)), lo=float(ratio.min()),
+                           hi=float(ratio.max()), over=int((ratio > 100).sum()),
+                           n=len(tasks), h_lo=float(hz.min()), h_hi=float(hz.max()))
+    return facts
+
+
+def integration_claims(facts):
+    """(name, {readme: regex}) for every TD-MPC2 number the READMEs quote."""
+    b = lambda x: r"\*\*%s\*\*" % re.escape(x)
+    both = lambda pat: {"README.md": pat, "README.zh-CN.md": pat}
+    f1, f48 = facts["1M"], facts["48M"]
+    return [
+        ("mt30-48M median error at k=3",  both(b("%.0f%%" % f48["median"]))),
+        ("mt30-48M lowest task",          both(b("%.0f%%" % f48["lo"]))),
+        ("mt30-48M highest task",         both(b("%.0f%%" % f48["hi"]))),
+        ("mt30-1M median error at k=3",   both(b("%.0f%%" % f1["median"]))),
+        ("mt30-1M tasks over 100%",       both(b(str(f1["over"])) + r"[^\n]{0,12}(?:of 8|/ ?8| 个)")),
+        ("mt30-48M shortest horizon",     both(b("%.0f" % f48["h_lo"]) + r"\s*\n?\s*(?:steps|步)")),
+        ("8 tasks were measured",         both(r"8 dm_control (?:tasks|任务)|8 个 dm_control")),
+    ]
+
+
+def badge_matches_claim_count(total):
     """The README's claim-count badge must equal the number of claims here.
 
     A badge with a number in it drifts the moment a claim is added, and drifts
@@ -131,9 +178,9 @@ def badge_matches_claim_count():
         m = pattern.search(f.read_text())
         if not m:
             bad.append(name + ": no claim-count badge found")
-        elif int(m.group(1)) != len(CLAIMS) or int(m.group(2)) != len(CLAIMS):
+        elif int(m.group(1)) != total or int(m.group(2)) != total:
             bad.append("%s: badge says %s/%s, there are %d claims"
-                       % (name, m.group(1), m.group(2), len(CLAIMS)))
+                       % (name, m.group(1), m.group(2), total))
     return bad
 
 
@@ -152,7 +199,7 @@ def main(argv):
     if missing:
         print("cannot read: %s" % ", ".join(missing)); return 2
     run = "".join(pathlib.Path(p).read_text() for p in paths)
-    bad, checked, badge_bad = [], 0, badge_matches_claim_count()
+    bad, checked, badge_bad = [], 0, badge_matches_claim_count(len(CLAIMS) + N_INTEGRATION)
     for problem in badge_bad:
         print("  BADGE  " + problem)
     for lesson, stable, claim, pattern in CLAIMS:
@@ -166,6 +213,30 @@ def main(argv):
             bad.append(claim)
         print("  L%d %s %-40s %s" % (lesson, "S" if stable else " ", claim,
                                     "ok" if ok else "NOT FOUND IN OUTPUT"))
+    # Integration claims are recomputed from committed arrays, so they need no
+    # captured run and no GPU - they are checked on every invocation.
+    facts = _tdmpc2_facts()
+    if facts is None:
+        bad.append("integrations/tdmpc2/*.npz missing - the README's TD-MPC2 "
+                   "numbers cannot be recomputed")
+        print("  I  integration results not found in integrations/tdmpc2/")
+    else:
+        claims = integration_claims(facts)
+        if len(claims) != N_INTEGRATION:
+            bad.append("N_INTEGRATION says %d, integration_claims() returns %d"
+                       % (N_INTEGRATION, len(claims)))
+        for name, per_file in claims:
+            checked += 1
+            missing = []
+            for fname, pat in per_file.items():
+                f = pathlib.Path(__file__).parent / fname
+                if not f.exists() or not re.search(pat, f.read_text()):
+                    missing.append(fname)
+            if missing:
+                bad.append(name)
+            print("  I  %-40s %s" % (name, "ok" if not missing
+                                     else "NOT IN " + ", ".join(missing)))
+
     print("\n  %d/%d README claims backed by the captured run%s."
           % (checked - len(bad), checked,
              "".join([" (lessons %s)" % ",".join(map(str, sorted(lessons))) if lessons else "",

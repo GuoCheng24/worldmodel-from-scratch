@@ -2,6 +2,7 @@
 from .systems import Pendulum, Lorenz, rollout
 from .models import WorldModel, fit, imagine, make_dataset
 from .planning import cem_mpc
+from .diagnose import diagnose, Diagnosis
 from .gym_systems import ensure_headless_gl, GymSystem, AVAILABLE as GYM_ENVS
 from .analysis import (rollout_error, lyapunov, fit_growth, usable_horizon,
                        lipschitz, textbook_bound, fit_growth_ci,
@@ -13,4 +14,5 @@ __all__ = ["Pendulum", "Lorenz", "rollout", "WorldModel", "fit", "imagine",
            "make_dataset", "rollout_error", "lyapunov", "fit_growth", "usable_horizon",
            "lipschitz", "textbook_bound", "fit_growth_ci", "summarise",
            "rank_fidelity", "effective_rank", "probe_r2", "cem_mpc",
-           "ensure_headless_gl", "GymSystem", "GYM_ENVS"]
+           "ensure_headless_gl", "GymSystem", "GYM_ENVS",
+           "diagnose", "Diagnosis"]

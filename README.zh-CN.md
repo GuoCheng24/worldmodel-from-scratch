@@ -1,6 +1,6 @@
 # worldmodel-from-scratch
 
-[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-65%2F65%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-72%2F72%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **一个下午写出一个世界模型 —— 然后搞清楚它在哪里坏掉。**
 
@@ -41,6 +41,84 @@
 | **读** | issue 标题是 *"Add project explanation"*、*"Why is dyn_discrete always True?"* | 你真正要读的库是 **691 行**;每一课再 60–260 行且互相独立。注释解释的是**为什么**这样写,不是这行在干嘛。 |
 | **坏** | —— | **这才是这个仓存在的理由。** |
 
+## `wm.diagnose()` —— 那些参考实现不给你的那个数
+
+DreamerV3 把开环预测记录成一张**图**:六条序列,前五步是给定上下文、其余靠想象,
+和真值并排画出来,交界处用绿转红的边框标出,供人**用眼睛看**。
+官方 JAX 实现和最常用的 PyTorch 移植版做法完全一致,没有任何标量从那个函数里出来。
+TD-MPC2 确实报了一个——`consistency_loss`,那是它 3 步训练视界内、带 `rho` 折扣、
+**未做任何归一化**的 MSE,在回放数据上算,上报到 wandb,但不进控制台、也不进保存的 CSV。
+三者没有一个回答:*在这个任务上,这个模型往前几步还值得信。*
+
+所以这个仓把它写一次。进两个数组,出一份报告;它完全不碰你的模型,
+所以不在乎你用什么框架,也不在乎你预测的是状态、潜变量,还是拉平的像素。
+
+```python
+lam, sd = wm.lyapunov(lorenz, n=300, steps=4000, rng=rng)   # 测出来的, 不是假设的
+report  = wm.diagnose(pred, true, dt=lorenz.dt, lam=(lam, sd))
+print(report)          # 它同时也是个 dict: report["horizon"]["p50"]
+```
+
+`pred` 和 `true` 的形状是 `(轨迹数, 步数, 状态维度)`——你的 rollout,
+以及它本该匹配的真值,**同样的起点、同样的动作序列**。
+在第 2 课那个 Lorenz 模型上(完整的那次运行就是
+[`examples/diagnose_lorenz.py`](examples/diagnose_lorenz.py),下面这块是它的**原样输出**):
+
+```
+world model rollout diagnosis   600 trajectories x 900 steps, state dim 3
+
+  usable horizon   tolerance 2.787 (10.6% of typical state size)
+      5th 333    median 590    95th 853    spread 2.6x    [3% censored]
+
+  growth shape     residuals exp 0.187 / pow 0.797, ratio 4.26 -> exponential
+      4.3 decades of range before saturation
+
+  growth rate      by how you summarise trajectories
+      median     0.8899  95%CI [0.8784, 0.9004]   -1.6% vs lambda, agrees within lambda's own +-0.084
+      geometric  0.8886  95%CI [0.8745, 0.9034]   -1.8% vs lambda, agrees within lambda's own +-0.084
+      mean       0.9645  95%CI [0.9282, 1.0211]   +6.6% vs lambda, agrees within lambda's own +-0.084
+
+  read with care
+      - the fitted rate moves by 9% depending on whether you summarise
+        trajectories by mean, median or geometric mean
+```
+
+真正要紧的是最后那一块。**它不会给你一个它站不住的数**:
+如果太多轨迹从未越过容差,它会说可用步数被**截尾**了,而不是硬报一个分位数;
+如果指数拟合和幂律拟合的残差相差不到 50%,它会说 **ambiguous**,而不是挑一个赢家;
+它同时报三种汇总方式,因为你选哪一种,答案的变化幅度比很多人发表出来的效应还大。
+这个仓自己先犯过上面这两个错——这些护栏就是当时的修法,被留了下来。
+
+## 它能跑在已发表的模型上,不只是跑在这几个玩具系统上
+
+`wm.diagnose()` 只吃两个数组、对你的模型一无所知,所以它能直接跑在别人的模型上。
+下面是它跑在 **TD-MPC2 官方发布的 `mt30` checkpoint** 上的结果——用的是 TD-MPC2
+自己的代码和环境,经它们自己的 `load_state_dict` 以 `strict=True` 加载。
+
+<p align="center">
+  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
+</p>
+
+TD-MPC2 规划时把学到的动力学**前推 3 步**再打分——在每一个任务上都是 3 步。
+在 8 个 dm_control 任务上测量(每个任务 640 条 rollout),恰好在那个视界处的误差,
+占潜变量**实际移动距离**的比例:
+
+- **mt30-48M**:中位数 **22%**,但跨任务从 **7%** 到 **68%** ——规划器所依赖的那个量,
+  在同一个模型上就有十倍的差异。
+- **mt30-1M**:中位数 **77%**,且 8 个任务里有 **3** 个超过 **100%** ——在它据以规划的
+  那个视界上,这条 rollout 携带的信息还不如"假设什么都没变"。
+- 在 `cup-catch` 上,48M 模型的预测 **2** 步就已越过容差,比它自己的 3 步前瞻还短。
+
+TD-MPC2 确实记录了 `consistency_loss`——那是同样 3 步内、带 `rho` 折扣、**未做任何
+归一化**的 MSE,在回放数据上算,上报到 wandb,但不进控制台、也不进保存的 CSV。
+它是一个训练损失,没有可读的尺度;代码库里没有任何东西回答
+*"在这个任务上,这个模型往前几步还值得信"*。
+
+复现只要两条命令:**[integrations/tdmpc2/](integrations/tdmpc2/)** 里有钉死的环境、
+精确的调用方式,以及第二个发现——官方发布的 312 个**单任务** checkpoint 里,
+有 14 个用的是更早的参数布局,当前代码加载它们会直接 `RuntimeError`,
+而公开历史上没有任何一个提交产出过那种布局。其余 298 个可以正常加载运行。
+
 ## 快速开始
 
 ```bash
@@ -63,7 +141,7 @@ python make_visuals.py                             # 重画上面的动图
 
 ```bash
 for f in lessons/*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
-python check_claims.py /tmp/0*.txt        # 65/65 条 README 断言有输出支撑
+python check_claims.py /tmp/0*.txt        # 72/72 条 README 断言有输出支撑
 ```
 
 没有 `--config`,没有下载,没有环境变量。`torch` 能 import 就能跑。
@@ -310,11 +388,11 @@ export MUJOCO_GL=egl        # 必须在 import mujoco 或 gymnasium 之前
 
 | 规划器 | 每步回报 | 终态指尖-目标距离 |
 |---|---|---|
-| 随机动作 | −0.1933 | — |
-| 世界模型 H=3 | −0.0301 | 0.0004 |
-| **世界模型 H=5** | **−0.0213** | 0.0009 |
-| 世界模型 H=20 | −0.0361 | 0.0100 |
-| 世界模型 H=40 | −0.0478 | 0.0188 |
+| 随机动作 | −0.2045 | — |
+| 世界模型 H=3 | −0.0271 | 0.0005 |
+| **世界模型 H=5** | **−0.0207** | 0.0009 |
+| 世界模型 H=20 | −0.0341 | 0.0076 |
+| 世界模型 H=40 | −0.0451 | 0.0243 |
 
 **这里任务要的步长是 5,而摆起任务要 25。** 两个都是任务给的答案:
 摆起必须先蓄能很多步才会有好事发生,够物体不需要——贪心下降本来就是对的,
@@ -367,13 +445,14 @@ H 从 5 到 40 状态误差涨了 30 多倍,而排序还在,**规划器直到排
 
 | | CI 里跑 | 发版前本地核验 |
 |---|---|---|
-| 24 项库正对照(`tests/`) | ✓ Python 3.9 / 3.11 / 3.12 | ✓ |
+| 34 项库正对照(`tests/`) | ✓ Python 3.9 / 3.11 / 3.12 | ✓ |
 | 第 1–2 课的**稳定断言** | ✓ | ✓ |
+| 7 个 TD-MPC2 数字, 从已提交的 `.npz` 重算 | ✓ 不需要 GPU 也不需要 checkpoint | ✓ |
 | 第 1–2 课的记录数字 | ✗ CPU 不同 | ✓ |
 | 第 3–6 课 | ✗ 需 GPU 或 MuJoCo | ✓ |
 
 ```bash
-python check_claims.py /tmp/0*.txt                 # 65/65, 对着产生本文档的那次运行
+python check_claims.py /tmp/0*.txt                 # 72/72, 对着产生本文档的那次运行
 python check_claims.py --stable-only /tmp/0*.txt   # 应当在任何地方都成立的那部分
 ```
 
@@ -393,11 +472,16 @@ Lorenz 指数对文献值、有限差分 Jacobian 对解析解、已知形状的
 
 ## 诚实的适用范围
 
-这里用的是二维和三维、状态完全可观测的系统。选它们是因为**真实动力学是精确已知的**,
-这才让"模型错了多少"成为一个有确切答案的问题。
-**目前为止,这些结论都还没有在基于像素的世界模型上、在 DreamerV3 或 TD-MPC2 上、
-或在机器人任务上验证过**——那是第 5、6 课的事。在那之前,请把这些结论读作
-"关于一个一切都可测量的场景的精确陈述",而不是"关于视频世界模型的既定事实"。
+课程里用的是二维和三维、状态完全可观测的系统。选它们是因为**真实动力学是精确已知的**,
+这才让"模型错了多少"成为一个有确切答案的问题。第 5、6 课把它带进了 MuJoCo,
+[integrations/tdmpc2/](integrations/tdmpc2/) 把 `wm.diagnose()` 带上了一个
+已发表的潜空间世界模型。
+
+**仍然没有验证过的是:基于像素的世界模型,以及 DreamerV3。**
+关于增长形状和增长率的那些结论,请读作"关于一个一切都可测量的场景的精确陈述",
+而不是"关于视频世界模型的既定事实"。TD-MPC2 那次测的是真模型,但它也带着自己的一个限制:
+没有解码器,编码器漂移和动力学误差就无法分离,所以那里报的是两者之和——
+而这也正是规划器实际拿到的东西。
 
 ## 相关工作,以及各自适合干什么
 
