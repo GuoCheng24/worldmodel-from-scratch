@@ -40,6 +40,10 @@ print("    -> predicting the change is %.1fx more accurate (MSE)" % (d / r))
 print("       Modest, but free, and it is the right default: with dt small,")
 print("       s_{t+1} is nearly s_t, so a direct model is partly rewarded for")
 print("       copying its input rather than learning the dynamics.")
+# The ratio moves with the machine - a CPU run of this file measured 1.4x where
+# a GPU run measured 2.1x - so the sentence a check can hold the README to is
+# the direction, not the number.
+print("    STABLE: predicting the change wins on every machine we have run this on.")
 
 model = results[True][0]
 
@@ -58,6 +62,11 @@ print("    step 20  error %.4f   (%.2f%%)   %.0fx the one-step error" % (e[19], 
 print("\n    The one-step MSE said %.1e. Nothing about that number told you the" % r)
 print("    rollout would be %.0fx worse by step 20. Lesson 2 is about why," % (e[19] / e[0]))
 print("    and about what you can measure instead.")
+# The factor moves between machines; that it is large does not. Asserting the
+# weak form here means a run where the gap collapsed would stop rather than
+# quietly print a number nobody checks.
+assert e[19] / e[0] > 5, "the 20-step gap collapsed to %.1fx - worth investigating" % (e[19] / e[0])
+print("    STABLE: the 20-step error is at least 5x the one-step error, every run.")
 
 np.savez(pathlib.Path(__file__).parent.parent / "figures" / "lesson01.npz",
          e=e, one_step_residual=r, one_step_direct=d, span=span)

@@ -13,6 +13,18 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from wm.analysis import summarise
 
 FIG = pathlib.Path(__file__).parent / "figures"
+
+# The lessons save what they measured; this script only draws it. Say so plainly
+# when the measurements are not there yet, rather than letting a FileNotFoundError
+# traceback be a freshly cloned repository's first output.
+if not (FIG / "lesson02.npz").exists():
+    print(__doc__)
+    print("No measurements found in figures/. Run the lessons first:\n"
+          "    python lessons/01_a_world_model_in_50_lines.py\n"
+          "    python lessons/02_why_rollouts_drift.py\n"
+          "then this script again. Lessons 3-6 add their own panels when present.")
+    raise SystemExit(1)
+
 d = np.load(FIG / "lesson02.npz")
 e_p, err_p, bound = d["e_p"], d["err_p"], d["bound"]
 EA, EB = d["EA"], d["EB"]

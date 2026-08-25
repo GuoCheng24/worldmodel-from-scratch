@@ -47,12 +47,21 @@ def lyapunov(system, n=400, steps=4000, eps=1e-8, rng=None, actions=True):
     return float(per.mean()), float(per.std())
 
 
-def fit_growth(e, dt=1.0, lo=None, hi=None):
+def fit_growth(e, dt=1.0, lo=None, hi=None, decisive=1.5):
     """Is this curve exponential or power-law, and at what rate?
 
     Returns a dict with both fits and their residuals. Whichever has the
     smaller residual in log-space is the better description - reporting only
     one of them is how a power law gets mistaken for an exponential.
+
+    A curve does not always distinguish them, and saying so matters more than
+    it sounds. `decisive` is how many times larger the losing residual must be
+    before a winner is declared; below that the verdict is "ambiguous". The
+    default of 1.5 was set from measurement, not taste: on synthetic curves of
+    known shape the ratio is 3 to 23, while the real curves that flip between
+    random seeds sit at 1.2. Without this, a binary verdict gets reported on a
+    coin flip - two of this repository's headline findings did exactly that,
+    holding in two runs out of six, until the seeds were varied.
 
     Restrict to [lo, hi] to exclude the saturated tail: once the error reaches
     the size of the state space it stops growing for reasons that have nothing
@@ -69,10 +78,16 @@ def fit_growth(e, dt=1.0, lo=None, hi=None):
     ce = np.polyfit(t, ee, 1); cp = np.polyfit(np.log(kk), ee, 1)
     r_exp = float(np.std(ee - np.polyval(ce, t)))
     r_pow = float(np.std(ee - np.polyval(cp, np.log(kk))))
+    ratio = max(r_exp, r_pow) / max(min(r_exp, r_pow), 1e-12)
+    if ratio < decisive:
+        verdict = "ambiguous"
+    else:
+        verdict = "exponential" if r_exp < r_pow else "power-law"
     return {"n": int(m.sum()), "k_range": (int(kk[0]), int(kk[-1])),
             "exp_rate": float(ce[0]), "pow_alpha": float(cp[0]),
             "resid_exp": r_exp, "resid_pow": r_pow,
-            "verdict": "exponential" if r_exp < r_pow else "power-law"}
+            "resid_ratio": float(ratio), "leaning": "exponential" if r_exp < r_pow else "power-law",
+            "verdict": verdict}
 
 
 def usable_horizon(err, tol):

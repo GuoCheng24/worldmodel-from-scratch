@@ -39,13 +39,17 @@ the entire horizon anyone cares about and lambda predicts nothing. Read the
 Lorenz result below as a statement about the chaotic regime, not about world
 models in general - and see Lesson 5 for what the common case looks like.
 """
-import numpy as np, torch, pathlib, sys
+import numpy as np, torch, pathlib, sys, os
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import wm
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 FIG = pathlib.Path(__file__).resolve().parents[1] / "figures"
-rng = np.random.default_rng(0); torch.manual_seed(0)
+# The seed is settable so the stability of each verdict can be measured rather
+# than assumed. Two of the conclusions below turned out to depend on it, and
+# the only way to know that was to vary it.
+SEED = int(os.environ.get("WM_SEED", "0"))
+rng = np.random.default_rng(SEED); torch.manual_seed(SEED)
 
 # ═══ 1. Two systems, one number that tells them apart ══════════════════════
 print("[1] Measuring the largest Lyapunov exponent of each system.")
@@ -79,12 +83,32 @@ print("      step   measured    textbook bound    overestimate")
 for k in (1, 10, 20, 40, 90):
     print("      %4d   %.3e   %.3e       %10.0fx" % (k, e_p[k - 1], bound[k - 1], bound[k - 1] / e_p[k - 1]))
 g = wm.fit_growth(e_p, dt=pend.dt)
-print("    Measured curve is best fit by a %s (alpha=%.2f); residuals exp %.3f / pow %.3f."
-      % (g["verdict"], g["pow_alpha"], g["resid_exp"], g["resid_pow"]))
-print("    The bound is an exponential in k. %s" % (
-      "The measurement is not, so the bound is wrong in shape, not just in scale."
-      if g["verdict"] == "power-law" else
-      "So is the measurement here - the shape claim does not hold in this run."))
+print("    Measured curve: residuals exp %.3f / pow %.3f, a ratio of %.2f -> %s."
+      % (g["resid_exp"], g["resid_pow"], g["resid_ratio"], g["verdict"]))
+if g["verdict"] == "ambiguous":
+    print("    The two fits are within %.0f%% of each other, so this curve does not"
+          % (100 * (g["resid_ratio"] - 1)))
+    print("    distinguish the shapes and no verdict is claimed. That is the usual")
+    print("    outcome here: across six seeds this came out 'power-law' twice and")
+    print("    'exponential' four times, which is a coin flip reported as a finding")
+    print("    until the threshold below was added. What IS solid is the magnitude:")
+elif g["verdict"] == "power-law":
+    print("    The bound is an exponential in k and this is not, so it is wrong in")
+    print("    shape rather than only in scale. Note this verdict is seed-dependent:")
+    print("    across six seeds it came out power-law twice and exponential four times.")
+else:
+    print("    The measurement leans exponential too on this seed, so the shape claim")
+    print("    does not hold here - only the magnitude below does.")
+# Quote the gap at a horizon someone would plan over, and say when the bound
+# declares the rollout finished. L^k at k=90 is an astronomical number that
+# reads as a straw man rather than as evidence.
+span = float(np.linalg.norm(true, axis=-1).mean())
+kb = int(np.argmax(bound > span)) + 1 if (bound > span).any() else K
+km = int(np.argmax(e_p > span)) + 1 if (e_p > span).any() else K
+print("    Whatever its shape, the bound is %.0fx above the measurement at step 40," % (bound[39] / e_p[39]))
+print("    and declares the rollout worthless at step %d on a system whose typical" % kb)
+print("    error is still %.0f%% of the state size at step %d. That gap is on every seed."
+      % (100 * e_p[K - 1] / span, K))
 print("    lambda = %+.4f for this system, so there is almost nothing to amplify;" % lam_p)
 print("    what you are watching is errors accumulating, not compounding.")
 
@@ -92,7 +116,14 @@ print("    what you are watching is errors accumulating, not compounding.")
 print("\n[2b] The same data, summarised by the mean instead of the median.")
 e_mean = wm.summarise(err_p, "mean")
 gm = wm.fit_growth(e_mean, dt=pend.dt)
-print("     median curve -> %-11s   mean curve -> %s" % (g["verdict"], gm["verdict"]))
+print("     median curve -> %-11s (ratio %.2f)   mean curve -> %-11s (ratio %.2f)"
+      % (g["verdict"], g["resid_ratio"], gm["verdict"], gm["resid_ratio"]))
+if g["verdict"] != gm["verdict"] and "ambiguous" not in (g["verdict"], gm["verdict"]):
+    print("     Two different functional forms from the same 1000 rollouts.")
+else:
+    print("     On this seed the two summaries do not give cleanly different forms.")
+    print("     Across six seeds they did so twice. The shape contrast is NOT the")
+    print("     reliable part of this section - the mechanism below is.")
 over = np.abs(pred[..., 0] - true[..., 0]) > np.pi
 print("     The difference is a minority of rollouts falling off a cliff. A pendulum")
 print("     driven by random torque can be pushed over the top; once the model and")
@@ -144,11 +175,22 @@ for name, E in (("A", EA), ("B", EB)):
           % (name, g["exp_rate"], c[0], c[1], 100 * (g["exp_rate"] / lam_l - 1),
              "covers lambda" if c[0] <= lam_l <= c[1] else "does NOT cover lambda"))
 gap = abs(res["A"]["exp_rate"] - res["B"]["exp_rate"]) / lam_l
-print("    The two rates differ by %.0f%% of lambda. %s" % (100 * gap,
-      "Injecting an error at every step did not change the growth rate -"
-      " the dynamics set it, and the model only decides the starting size."
-      if gap < 0.15 else
-      "That is too large to call equal; do not claim injection is rate-neutral here."))
+covA = res["A"]["exp_rate_ci"][0] <= lam_l <= res["A"]["exp_rate_ci"][1]
+covB = res["B"]["exp_rate_ci"][0] <= lam_l <= res["B"]["exp_rate_ci"][1]
+print("    A is amplification with nothing added, and its interval covers the")
+print("    measured lambda%s. That one is solid: it held on six seeds out of six."
+      % ("" if covA else " - except on this seed, which is worth a look"))
+if covB:
+    print("    B covers it too here, so injecting an error at every step did not")
+    print("    change the growth rate on this run. Across six seeds B covered lambda")
+    print("    twice, so read this as 'B lands near lambda', not as an equality.")
+else:
+    print("    B does NOT cover lambda on this seed - it reads %.0f%% high. Across six"
+          % (100 * (res["B"]["exp_rate"] / lam_l - 1)))
+    print("    seeds B covered lambda twice and missed it four times, always high and")
+    print("    always by under 15%%. So injection does not change the growth rate to")
+    print("    within about that much, which is the honest form of the claim; the")
+    print("    stronger 'it does not change it at all' is not what the seeds support.")
 
 # ═══ 3b. The average you choose changes the answer ═════════════════════════
 print("\n[3b] Now the same fit, with the three ways of averaging trajectories.")

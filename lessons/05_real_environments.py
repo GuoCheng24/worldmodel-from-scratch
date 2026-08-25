@@ -119,44 +119,44 @@ print("    here, it is uninformative. (The exact step moves by one between runs;
 print("    what does not move is that it is single digits against tens.)")
 
 # ═══ 2. Which shape does the error curve take? ═════════════════════════════
-print("\n[2] Lesson 2 found power-law growth on a marginal system and exponential")
-print("    growth at rate lambda on a chaotic one. On real environments:")
-print("      %-22s %-8s %-13s %-13s %s" % ("environment", "lambda", "median curve", "mean curve", "same shape?"))
+print("\n[2] Lesson 2 could not tell the shape of its pendulum curve apart at all,")
+print("    and found exponential growth at rate lambda on a chaotic one. Here:")
+print("      %-22s %-8s %-13s %-13s %s" % ("environment", "lambda", "median curve", "mean curve", "same?"))
 diff = 0
 for r in rows:
-    same = r["med_fit"]["verdict"] == r["mean_fit"]["verdict"]
+    mv, av = r["med_fit"]["verdict"], r["mean_fit"]["verdict"]
+    same = mv == av
     diff += not same
     print("      %-22s %-8.2f %-13s %-13s %s"
-          % (r["env"], r["lam"], r["med_fit"]["verdict"], r["mean_fit"]["verdict"],
-             "yes" if same else "NO"))
-print("    %d of %d environments give a different functional form depending on"
-      % (diff, len(rows)))
-print("    which average you take%s."
-      % (", here " + ", ".join(r["env"].split("-")[0] for r in rows
-                               if r["med_fit"]["verdict"] != r["mean_fit"]["verdict"])
-         if diff else ", none on this run"))
-print("    Across repeated runs we have seen 0 and 1 of 3, so this is a risk to")
-print("    check on your own system rather than a property of these environments.")
-print("    Lesson 2 met it on the pendulum, where it was reproducible.")
+          % (r["env"], r["lam"], "%s(%.1f)" % (mv[:4], r["med_fit"]["resid_ratio"]),
+             "%s(%.1f)" % (av[:4], r["mean_fit"]["resid_ratio"]), "yes" if same else "NO"))
+print("    (the number in brackets is how many times larger the losing residual is;")
+print("     under 1.5 the curve does not distinguish the two shapes and says so)")
+amb = sum(r["med_fit"]["verdict"] == "ambiguous" for r in rows)
+print("    %d of %d median curves are ambiguous, and %d of %d give a different form"
+      % (amb, len(rows), diff, len(rows)))
+print("    depending on which average you take. Whether that contrast appears is not")
+print("    stable: Lesson 2 saw it on two seeds out of six, and it varies here too.")
+print("    Treat it as something to check on your own system, not as a property of")
+print("    world models.")
 
 # ═══ 3. The qualification Lesson 2 needs ═══════════════════════════════════
 print("\n[3] And a correction to Lesson 2 that only showed up here.")
 expo = [r for r in rows if r["med_fit"]["verdict"] == "exponential"]
-print("    Lesson 2's headline - the growth rate equals the Lyapunov exponent -")
-print("    was measured where the growth really is exponential: a chaotic system")
-print("    with an accurate model and four decades of range before saturation.")
-print("    On these environments the median curve is %s."
-      % ("exponential in %d of %d" % (len(expo), len(rows)) if expo else "power-law in every case"))
+print("    Lesson 2's one solid result - the amplification-only curve grows at the")
+print("    Lyapunov rate - was measured on a chaotic system with an accurate model")
+print("    and four decades of range before saturation. On these environments the")
+print("    median curve is exponential in %d of %d." % (len(expo), len(rows)))
 for r in rows:
     v = r["med_fit"]
     if v["verdict"] == "exponential":
-        print("      %-22s rate %.3f vs lambda %.3f  ->  ratio %.2f"
+        print("      %-22s rate %.3f vs lambda %.3f -> ratio %.2f"
               % (r["env"], v["exp_rate"], r["lam"], v["exp_rate"] / r["lam"]))
     else:
-        print("      %-22s power-law (alpha %.2f); its exponential rate is a fit that"
-              % (r["env"], v["pow_alpha"]))
-        print("      %-22s LOST, so comparing it to lambda would be reading a number" % "")
-        print("      %-22s out of the wrong model." % "")
+        print("      %-22s %s, so its exponential rate is a fit that did not win"
+              % (r["env"], v["verdict"]))
+        print("      %-22s and comparing it to lambda would read a number out of the" % "")
+        print("      %-22s wrong model." % "")
 print("    Amplification needs something to amplify. With lambda*dt small or the")
 print("    model error large, injection dominates for the whole horizon you care")
 print("    about, and lambda predicts nothing. That is the common case on robots,")

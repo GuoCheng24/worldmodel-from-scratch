@@ -13,6 +13,15 @@ build one. This one is about the half nobody teaches: **how far you can trust
 the thing once it is built, and what actually governs that.**
 
 <p align="center">
+  <img src="figures/arm.gif" width="86%">
+</p>
+
+<sub>A MuJoCo arm reaching a target, planned entirely inside a model learned from
+random play with no reward signal during training — and the same planner given
+random actions instead. Produced by <code>make_visuals.py</code>; Lesson 6 is
+where it comes from.</sub>
+
+<p align="center">
   <img src="figures/rollout-error.png" width="100%">
 </p>
 
@@ -48,7 +57,8 @@ python lessons/04_latent_models_and_collapse.py               # 31 s
 # Lessons 5-6 additionally need `pip install gymnasium mujoco`
 MUJOCO_GL=egl python lessons/05_real_environments.py          # 65 s
 MUJOCO_GL=egl python lessons/06_a_real_robot_arm.py           # 67 s
-python make_figures.py                             # redraws the image above
+python make_figures.py                             # redraws the plots above
+python make_visuals.py                             # redraws the animations
 ```
 
 Every number quoted below is produced by those two scripts. To check that
@@ -75,12 +85,33 @@ want to know.
 bound `e(k+1) <= L·e(k) + δ`, with `L` the Lipschitz constant. This lesson
 measures whether it describes anything real.
 
-It does not, and not by a constant. On the pendulum it overpredicts the typical
-error by **6780x at step 40**, and the measured curve is a power law where the
-bound is an exponential. The bound is wrong in *shape*, not just in scale. The
-reason is that this system's Lyapunov exponent is `+0.016` — essentially zero —
-so there is almost nothing to amplify. What you are watching is errors
-**accumulating**, not compounding.
+It does not. On the pendulum it sits **6780x above the measurement at step 40**
+and declares the rollout worthless at **step 25**, on a system whose typical
+error is still 2% of the state size at step 90. The gap is on every seed.
+
+<p align="center">
+  <img src="figures/drift.gif" width="88%">
+</p>
+
+<sub>The same start and the same torques, run through the true dynamics and
+through the model. Most rollouts stay together; a measured minority goes over
+the top and never comes back, and the error between the two groups differs by
+two orders of magnitude. That minority is what Lesson 2 is mostly about.</sub>
+
+**What the shape of that curve is, this repository cannot tell you** — and
+saying so is a result. Fitting an exponential and a power law to the pendulum's
+median error curve gives residuals within 22% of each other. Across six seeds
+the winner came out power-law twice and exponential four times. An earlier
+version of this file reported "power law" as a finding; it was a coin flip.
+`fit_growth` now refuses a verdict when the losing fit is under 1.5x worse, a
+threshold set from measurement — synthetic curves of known shape sit at 3 to
+23, the curves that flip sit at 1.2.
+
+What survives is the magnitude, which does not move: the bound is wrong by
+three to four orders of magnitude at any horizon you would plan over, whatever
+the curve's shape is. The reason is that the pendulum's Lyapunov exponent is
+`+0.016`, essentially zero, so there is almost nothing to amplify. What you are
+watching is errors **accumulating**, not compounding.
 
 ### The average you report changes the answer, and it is not a small effect
 
@@ -128,10 +159,16 @@ trajectories:
 | **A** perturb once, true dynamics | 0.9030 | [0.8956, 0.9098] | +0.5%, covers λ |
 | **B** world-model rollout | 0.9005 | [0.8872, 0.9112] | +0.2%, covers λ |
 
-**Injecting a fresh error at every step does not change the growth rate.** The
-dynamics set it; the model only decides the starting size. What injection does
-is lift the whole curve by a constant — measured here at 13 to 30 depending on
-the estimator, and between 8 and 28 across seeds.
+**Amplification alone grows at exactly the Lyapunov rate.** Curve A's interval
+covered λ on six seeds out of six — the one result in this lesson that never
+moved. Curve B, the full model rollout, lands near λ but not reliably on it: it
+covered λ on two seeds of six and missed high on the other four, always by under
+15%. So the honest form is *injection does not change the growth rate to within
+about 15%*, not *it does not change it*. The lesson prints whichever the run
+found and says how the seeds came out.
+
+What injection does is lift the whole curve by a constant — measured here at 13
+to 30 depending on the estimator, and 8 to 28 across seeds.
 
 Two predictions bracket that: if successive model errors *aligned* they would
 sum to ~111x, if they were *independent* the pile-up would be ~7.5x. The
@@ -386,31 +423,48 @@ labelled.
 A green badge that quietly stands behind less than it appears to is the same
 failure this repository is about, so here is the scope in full.
 
+Every claim in `check_claims.py` is marked **stable** or not:
+
+- **stable** — a qualitative verdict, an order of magnitude, or a statement the
+  lesson makes about its own reliability. These held on every seed and every
+  machine we have run them on.
+- the rest quote numbers from the run that produced this README. They will not
+  match a different seed or a different CPU, and that is a measurement rather
+  than a defect: a first CI build backed 14 of 25, and all eleven misses were
+  real drift.
+
 | | runs in CI | checked before release |
 |---|---|---|
 | 24 library controls (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
-| Lessons 1–2 and their 25 README claims | ✓ | ✓ |
-| Lessons 3–4 and their 16 claims | ✗ wants a GPU | ✓ |
-| Lessons 5–6 and their 19 claims | ✗ wants MuJoCo | ✓ |
+| Lessons 1–2, **stable claims** | ✓ | ✓ |
+| Lessons 1–2, recorded numbers | ✗ different CPU | ✓ |
+| Lessons 3–6 | ✗ wants a GPU or MuJoCo | ✓ |
 
-CI passes `--lessons=1,2` to `check_claims.py`, which prints the subset it stands
-behind rather than a bare pass. The remaining claims are verified locally on the
-machine the numbers came from, and the full run is what the 60/60 badge refers to.
+```bash
+python check_claims.py /tmp/0*.txt                 # 65/65 against the recorded run
+python check_claims.py --stable-only /tmp/0*.txt   # what should hold anywhere
+```
 
-The `tests/` suite is not a unit-test suite. Each case is one where the answer is
-known independently — the Lorenz exponent against its literature value, a
+CI runs the second form and prints the subset it stands behind. Running the
+full set there would fail honestly on every build and teach everyone to ignore
+the badge; running only the loose half locally would let the README drift. Both
+are checked, each where it means something. An empty selection exits non-zero —
+a check that matched nothing is not a check that passed.
+
+The `tests/` suite is not a unit-test suite. Each case is one where the answer
+is known independently — the Lorenz exponent against its literature value, a
 finite-difference Jacobian against the analytic one, a synthetic curve of known
 shape, a confidence interval against its nominal coverage — plus negative
 controls, which catch more: a metric that reports something sensible on
 structureless data will report something sensible on a broken model too.
 
-Two of those tests exist because a bug got past everything else:
-`test_action_dim_is_not_hard_coded` (one wrong constant, in two functions,
-found when Lesson 6 tried a two-joint arm) and
-`test_the_interval_covers_the_truth_about_95pc_of_the_time` (bootstrapping the
-points of one averaged curve instead of the trajectories, which halved every
-interval and would have turned "consistent with λ" into "significantly
-different from λ").
+Four of those tests exist because a bug got past everything else:
+`test_action_dim_is_not_hard_coded` (one wrong constant, in two functions, found
+when Lesson 6 tried a two-joint arm), `test_the_interval_covers_the_truth...`
+(bootstrapping the points of one averaged curve instead of the trajectories,
+which halved every interval), and the two shape tests, which now also check that
+an ambiguous curve is called ambiguous instead of being given a coin-flip
+verdict.
 
 
 ## Honest scope
