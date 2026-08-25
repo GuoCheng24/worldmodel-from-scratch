@@ -1,0 +1,52 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  library:
+    name: library controls
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install (CPU torch - the lessons never need a GPU to be correct)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt pytest
+      - name: Controls
+        run: pytest tests/ -q
+
+  claims:
+    name: README claims
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      # Lessons 1-2 run on a CPU runner in a few minutes. Lessons 3-6 want a GPU
+      # or MuJoCo, so their claims are checked locally before release rather
+      # than here - `--lessons` says exactly which subset this job stands behind,
+      # instead of a green badge quietly covering less than it appears to.
+      - name: Run lessons 1-2
+        run: |
+          python lessons/01_a_world_model_in_50_lines.py | tee /tmp/l1.txt
+          python lessons/02_why_rollouts_drift.py        | tee /tmp/l2.txt
+      - name: Every claim in the README must appear in that output
+        run: python check_claims.py --lessons=1,2 /tmp/l1.txt /tmp/l2.txt

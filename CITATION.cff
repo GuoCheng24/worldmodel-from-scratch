@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it as below."
+title: "worldmodel-from-scratch: build a world model, then find out where it breaks"
+abstract: >-
+  A six-lesson, dependency-light introduction to world models that measures
+  where they fail rather than only how to build them. Every claim in the
+  documentation is checked against the lessons' real output by a script that
+  ships with the repository.
+type: software
+authors:
+  - family-names: Cheng
+    given-names: Guo
+    affiliation: "Hangzhou Institute of Medicine, Chinese Academy of Sciences, Hangzhou, China; University of Chinese Academy of Sciences, Beijing, China"
+    orcid: "https://orcid.org/0009-0006-7813-0114"
+repository-code: "https://github.com/GuoCheng24/worldmodel-from-scratch"
+license: MIT
+keywords:
+  - world models
+  - model-based reinforcement learning
+  - rollout error
+  - representation collapse
+  - reproducibility

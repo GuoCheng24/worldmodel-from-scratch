@@ -1,0 +1,20 @@
+{
+  "title": "worldmodel-from-scratch: build a world model, then find out where it breaks",
+  "description": "A six-lesson, dependency-light introduction to world models that measures where they fail rather than only how to build them. Lessons 1-4 need only torch, numpy and matplotlib; Lessons 5-6 add Gymnasium and MuJoCo. Every claim in the documentation is checked against the lessons' real output by a script that ships with the repository.",
+  "creators": [
+    {
+      "name": "Cheng, Guo",
+      "affiliation": "Hangzhou Institute of Medicine, Chinese Academy of Sciences, Hangzhou, China; University of Chinese Academy of Sciences, Beijing, China",
+      "orcid": "0009-0006-7813-0114"
+    }
+  ],
+  "license": "MIT",
+  "upload_type": "software",
+  "keywords": [
+    "world models",
+    "model-based reinforcement learning",
+    "rollout error",
+    "representation collapse",
+    "reproducibility"
+  ]
+}
