@@ -107,10 +107,19 @@ def test_readme_states_the_right_test_counts():
     lib = counts["test_library.py"]
     figs = counts["test_readme_figures.py"]
     md = counts["test_readme_markdown.py"]
-    text = (ROOT / "README.md").read_text()
-    m = re.search(r"(\d+) library controls, (\d+) figure checks and (\d+) markdown checks", text)
-    assert m, "the badge section no longer states the test counts"
-    for got, want, what in ((m.group(1), lib, "library controls"),
-                            (m.group(2), figs, "figure checks"),
-                            (m.group(3), md, "markdown checks")):
-        assert int(got) == want, "README says %s %s, the tests collect %d" % (got, what, want)
+    # Both READMEs, because only the English one was checked and the translated
+    # line is a second copy of the same three numbers - which is to say a second
+    # thing that can drift with nothing watching it.
+    for name, pattern in (
+            ("README.md",
+             r"(\d+) library controls, (\d+) figure checks and (\d+) markdown checks"),
+            ("README.zh-CN.md",
+             r"(\d+) 项库正对照 \+ (\d+) 项配图检查 \+ (\d+) 项 markdown 检查")):
+        text = (ROOT / name).read_text()
+        m = re.search(pattern, text)
+        assert m, "%s no longer states the test counts where this can read them" % name
+        for got, want, what in ((m.group(1), lib, "library controls"),
+                                (m.group(2), figs, "figure checks"),
+                                (m.group(3), md, "markdown checks")):
+            assert int(got) == want, ("%s says %s %s, the tests collect %d"
+                                      % (name, got, what, want))

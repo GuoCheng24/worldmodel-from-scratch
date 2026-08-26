@@ -27,7 +27,8 @@ twenty steps.</b> <b>Left</b> — a planner using a model learned from random pl
 holds a pole upright, for all 90 steps, in every run. <b>Right</b> — the same
 model, same start, same actions, imagining where they lead: its pole passes the
 angle this environment calls a failure between step 13 and step 23 across five
-runs, and the real one never does. A one-step loss around 1e-03 says nothing
+runs, and the real one never does - the heading above it turns red on the step
+that happens. A one-step loss around 1e-03 says nothing
 about that. Both panels are the simulator — the imagined states are pushed back
 into MuJoCo and rendered, which a latent-space model cannot do.
 <code>make_imagination.py</code>.</sub>
