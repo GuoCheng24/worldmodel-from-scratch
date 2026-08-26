@@ -668,12 +668,17 @@ the badge; running only the loose half locally would let the README drift. Both
 are checked, each where it means something. An empty selection exits non-zero —
 a check that matched nothing is not a check that passed.
 
-The `tests/` suite is not a unit-test suite. Each case is one where the answer
-is known independently — the Lorenz exponent against its literature value, a
-finite-difference Jacobian against the analytic one, a synthetic curve of known
-shape, a confidence interval against its nominal coverage — plus negative
-controls, which catch more: a metric that reports something sensible on
-structureless data will report something sensible on a broken model too.
+The `tests/` suite is two kinds of check, and neither is a unit test. The
+library cases are ones where the answer is known independently — the Lorenz
+exponent against its literature value, a finite-difference Jacobian against the
+analytic one, a synthetic curve of known shape, a confidence interval against
+its nominal coverage — plus negative controls, which catch more: a metric that
+reports something sensible on structureless data will report something sensible
+on a broken model too. The rest hold this page to the repository behind it: that
+every figure is legible at the width it is shown and carries alt text, that the
+tables render as tables, that every count and size quoted here is the one the
+files actually have, and that the checker does what it claims. Each of those
+exists because the thing it checks had already gone wrong once.
 
 Four of those tests exist because a bug got past everything else:
 `test_action_dim_is_not_hard_coded` (one wrong constant, in two functions, found
