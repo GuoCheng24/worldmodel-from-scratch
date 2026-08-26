@@ -276,6 +276,35 @@ class TestDiagnose:
         assert "no caveats" not in text, text
         assert any("not fitted" in w for w in r["warnings"]), r["warnings"]
 
+    def test_a_curve_that_settles_neither_shape_is_called_ambiguous(self):
+        """The other refusal the module docstring calls most of the value.
+
+        Nothing tested it. `exponential` and `power-law` each had a test; the
+        verdict for "this curve does not tell you which" did not, so the branch
+        that exists to stop a coin flip being reported as a finding was itself
+        unchecked.
+
+        The curve is the geometric mean of exp(0.28k) and k^3.75, which no
+        straight line in either log-space describes better than the other -
+        their residuals here come out within 12%, under the 1.5x the code
+        requires before it will name a winner.
+        """
+        K, N = 40, 24
+        k = np.arange(1, K + 1)
+        e = np.sqrt(np.exp(0.28 * k) * k ** 3.75)
+        e = e / e[-1] * 0.19        # rescaling shifts log by a constant, so it
+        ang = np.linspace(0, 2 * np.pi, N, endpoint=False)   # cannot change
+        unit = np.stack([np.cos(ang), np.sin(ang)], 1)       # either residual
+        true = np.stack([unit] * K, 1)
+        pred = true.copy()
+        pred[:, :, 0] += e[None, :]
+        r = wm.diagnose(pred, true, n_boot=60)
+        assert r["shape"]["verdict"] == "ambiguous", r["shape"]
+        assert r["shape"]["resid_ratio"] < 1.5, r["shape"]
+        # And it has to reach the reader, not just the dict.
+        assert any("does not distinguish" in w for w in r["warnings"]), r["warnings"]
+        assert "no caveats" not in str(r)
+
     def test_the_summary_disagreement_is_surfaced(self):
         """Heteroscedastic noise makes mean, median and geometric mean disagree.
         That disagreement is the finding, so it has to reach the reader."""
