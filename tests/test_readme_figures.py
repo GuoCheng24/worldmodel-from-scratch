@@ -81,10 +81,13 @@ def test_readme_states_the_right_test_counts():
     """
     lib = _count_tests(ROOT / "tests" / "test_library.py")
     figs = len(list(_figures())) + _count_tests(pathlib.Path(__file__)) - 1  # minus the parametrised one
+    md_file = ROOT / "tests" / "test_readme_markdown.py"
+    docs = len([q for q in ROOT.rglob("*.md") if ".git" not in q.parts])
+    md = _count_tests(md_file) - 2 + 2 * docs   # two parametrised over every doc
     text = (ROOT / "README.md").read_text()
-    m = re.search(r"(\d+) library controls and (\d+) figure checks", text)
+    m = re.search(r"(\d+) library controls, (\d+) figure checks and (\d+) markdown checks", text)
     assert m, "the badge section no longer states the test counts"
-    assert int(m.group(1)) == lib, (
-        "README says %s library controls, tests/test_library.py has %d" % (m.group(1), lib))
-    assert int(m.group(2)) == figs, (
-        "README says %s figure checks, this file collects %d" % (m.group(2), figs))
+    for got, want, what in ((m.group(1), lib, "library controls"),
+                            (m.group(2), figs, "figure checks"),
+                            (m.group(3), md, "markdown checks")):
+        assert int(got) == want, "README says %s %s, the tests collect %d" % (got, what, want)

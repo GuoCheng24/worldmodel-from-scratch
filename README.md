@@ -631,7 +631,7 @@ Every claim in `check_claims.py` is marked **stable** or not:
 
 | | runs in CI | checked before release |
 |---|---|---|
-| 34 library controls and 27 figure checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
+| 34 library controls, 27 figure checks and 13 markdown checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
 | Lessons 1–2, **stable claims** | ✓ | ✓ |
 | 12 integration numbers, recomputed from committed results | ✓ needs neither GPU, checkpoint nor scan | ✓ |
 | Lessons 1–2, recorded numbers | ✗ different CPU | ✓ |
