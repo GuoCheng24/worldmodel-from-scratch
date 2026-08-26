@@ -100,8 +100,14 @@ def draw(data, cfg):
     plt.rcParams.update({"font.size": 8.4, "figure.dpi": 84,
                          "font.family": ["Liberation Sans", "DejaVu Sans", "sans-serif"]})
     n = min(d[3] for d in data)
+    # GitHub shows the first frame until a reader presses play, and a reader who
+    # has asked for reduced motion never sees any other. Starting where the two
+    # tasks actually disagree makes that one frame carry the finding instead of
+    # contradicting it - at step 0 both read 20, which says the opposite.
+    gap = np.abs(data[0][2][:n].astype(int) - data[1][2][:n].astype(int))
+    start = int(np.argmax(gap >= 10)) if (gap >= 10).any() else 0
     out = []
-    for t in range(0, n, EVERY):
+    for t in range(start, n, EVERY):
         fig = plt.figure(figsize=(6.9, 4.7))
         gs = GridSpec(2, len(data), height_ratios=[1.55, 1], figure=fig,
                       wspace=.04, hspace=.34)
