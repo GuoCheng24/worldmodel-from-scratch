@@ -29,7 +29,6 @@ wm.ensure_headless_gl()
 import torch, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import imageio.v2 as imageio
 import gymnasium as gym
 
 ENV = sys.argv[1] if len(sys.argv) > 1 else "InvertedPendulum-v5"
@@ -177,5 +176,10 @@ for t in order:
 
 frames += [frames[-1]] * 8          # hold the end so a loop is readable
 out = FIG / ("imagination-%s.gif" % ENV.split("-")[0].lower())
-imageio.mimsave(out, frames, fps=12, loop=0, subrectangles=True)
+# Pillow rather than imageio: it arrives with matplotlib, and this file is
+# already the only one in the repository that would have needed a fourth
+# dependency to write a gif.
+from PIL import Image
+imgs = [Image.fromarray(f) for f in frames]
+imgs[0].save(out, save_all=True, append_images=imgs[1:], duration=int(1000 / 12), loop=0)
 print("  wrote %s (%d frames, %.1f MB)" % (out, len(frames), out.stat().st_size / 1e6))
