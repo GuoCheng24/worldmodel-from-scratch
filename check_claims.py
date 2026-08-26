@@ -109,7 +109,26 @@ CLAIMS = [
 
 
 PLAN_H = 3        # TD-MPC2 rolls its model forward this many steps to score actions
-N_INTEGRATION = 9 # claims recomputed from integrations/tdmpc2/ artefacts
+N_INTEGRATION = 12 # claims recomputed from integrations/*/ artefacts
+
+
+def _load_module(path, name):
+    """Import a file under a name of our choosing.
+
+    Both integration directories ship a summarise.py. Adding each to sys.path
+    and importing by name gives whichever was imported first, silently, and the
+    second one's functions then have the wrong signature.
+    """
+    import importlib.util
+    if not path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        return None
+    return mod
 
 
 def _tdmpc2_facts():
@@ -125,10 +144,8 @@ def _tdmpc2_facts():
     d = pathlib.Path(__file__).parent / "integrations" / "tdmpc2"
     if not d.is_dir():
         return None
-    sys.path.insert(0, str(d))
-    try:
-        import summarise
-    except ImportError:
+    summarise = _load_module(d / "summarise.py", "tdmpc2_summarise")
+    if summarise is None:
         return None
     runs = summarise.load()
     if len(runs) < 3:
@@ -139,6 +156,10 @@ def _tdmpc2_facts():
         return None
     import numpy as np
     f["returns"] = ret
+    dce = _dce_facts()
+    if dce is None:
+        return None
+    f["dce"] = dce
     f["rho"] = {}
     for s in ("1M", "48M", "317M"):
         tasks = f[s]["tasks"]
@@ -151,6 +172,27 @@ def _tdmpc2_facts():
 def _sig(x):
     """Format the way the READMEs do: a real minus sign, not a hyphen."""
     return ("%+.2f" % x).replace("-", "\u2212")
+
+
+def _dce_facts():
+    """Recompute the DCE-MRI numbers from the committed per-slice results."""
+    d = pathlib.Path(__file__).parent / "integrations" / "dce-mri"
+    if not d.is_dir():
+        return None
+    dce = _load_module(d / "summarise.py", "dce_summarise")
+    if dce is None:
+        return None
+    base, w50 = dce.load("full_plain"), dce.load("full_w50")
+    if not base:
+        return None
+    g = lambda rows, reg, m, c: dce.stat(rows, reg, m, c)[0]
+    out = dict(
+        d_ssim=g(base, "whole_slice", "UNet", "ssim") - g(base, "whole_slice", "B0_identity", "ssim"),
+        d_psnr=g(base, "whole_slice", "UNet", "psnr") - g(base, "whole_slice", "B0_identity", "psnr"),
+        lesion_gap=abs(g(base, "lesion_box", "UNet", "ssim") - g(base, "lesion_box", "B2_cond_mean", "ssim")))
+    if w50:
+        out["w50_shift"] = abs(g(w50, "lesion_box", "UNet", "ssim") - g(base, "lesion_box", "UNet", "ssim"))
+    return out
 
 
 def integration_claims(f):
@@ -189,6 +231,21 @@ def integration_claims(f):
         ("mt30-317M return on the worst-predicted task",
          {"README.md": r"\*\*[^*]{0,12}%.0f of 1000 at 317M\*\*" % f["returns"]["317M"][cart],
           "README.zh-CN.md": b("\u5728 317M \u4e0a\u62ff\u5230 %.0f/1000" % f["returns"]["317M"][cart])}),
+        ("DCE: U-Net beats the input globally",
+         {"README.md": r"\*\*\+%.2f SSIM and \+%.1f dB\*\*" % (f["dce"]["d_ssim"], f["dce"]["d_psnr"]),
+          "README.zh-CN.md": r"\*\*\+%.2f SSIM、\+%.1f dB\*\*" % (f["dce"]["d_ssim"], f["dce"]["d_psnr"])}),
+        ("DCE: in the lesion it only draws level with the lookup table",
+         {"README.md": r"draws\s+level\s+with\s+a\s+256-entry\s+lookup\s+table",
+          "README.zh-CN.md": r"只和一张 256 格"}
+         if f["dce"]["lesion_gap"] < 0.01 else
+         {"README.md": r"__gap_is_%.3f_not_level__" % f["dce"]["lesion_gap"],
+          "README.zh-CN.md": r"__gap_is_%.3f_not_level__" % f["dce"]["lesion_gap"]}),
+        ("DCE: fifty times the lesion loss weight changes nothing",
+         {"README.md": r"[Ww]eighting\s+the\s+loss\s+in\s+the\s+lesion\s+by\s+fifty\s+does\s+not\s+move\s+it",
+          "README.zh-CN.md": r"加权\s*50\s*倍[,，]\s*纹丝不动"}
+         if f["dce"].get("w50_shift", 1) < 0.03 else
+         {"README.md": r"__w50_moved_%.3f__" % f["dce"].get("w50_shift", 1),
+          "README.zh-CN.md": r"__w50_moved_%.3f__" % f["dce"].get("w50_shift", 1)}),
         ("rank correlation is unstable across sizes",
          {"README.md": b(", ".join(_sig(f["rho"][s]) for s in ("1M", "48M"))
                          .replace(", " + _sig(f["rho"]["48M"]),

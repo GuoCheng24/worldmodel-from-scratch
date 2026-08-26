@@ -1,6 +1,6 @@
 # worldmodel-from-scratch
 
-[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-74%2F74%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-77%2F77%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Build a world model in an afternoon — then find out how far you can trust it.**
 
@@ -172,6 +172,34 @@ TD-MPC2 does log `consistency_loss` — an undivided, `rho`-discounted MSE over
 those same 3 steps, on replay batches, to wandb but not to the console or the
 saved CSV. It is a training loss with no readable scale, and nothing in the
 codebase answers *how many steps ahead is this model worth trusting, here*.
+
+## The same disease, in a domain with nothing to do with robots
+
+A model that turns a pre-contrast MRI slice into the post-contrast one is
+predicting how a system evolves after an intervention, and that literature has
+started to say so - the framing has moved from image translation to contrast
+*kinetics*. So the first question here transfers: **what does the most trivial
+predictor already score?**
+
+<p align="center">
+  <img src="integrations/dce-mri/dce-baselines.png" width="100%">
+</p>
+
+On public breast DCE-MRI, a 2M-parameter U-Net beats handing back the input by
+**+0.07 SSIM and +4.1 dB** on the whole slice. **Inside the lesion - the few
+hundred pixels the contrast agent is injected for - it draws level with a
+256-entry lookup table** that sees one voxel and no context. Weighting the loss
+in the lesion by fifty does not move it; five times the data only brings it up
+to that lookup table, not past it.
+
+A breast MRI slice is mostly fat, muscle, air and chest wall, none of which
+enhance. A global metric is dominated by the part of the image where doing
+nothing is right, so it cannot separate a model that predicts enhancement from
+one that preserves anatomy — the same shape as a TD-MPC2 planner that does the
+task while its rollout is worse than standing still.
+**[integrations/dce-mri/](integrations/dce-mri/)** has the data fetcher, the
+protocol, a null control reported as a null, and the one indexing gotcha that
+silently invalidates the whole thing if you skip it.
 
 Rerunning it takes two commands: **[integrations/tdmpc2/](integrations/tdmpc2/)**
 has the pinned environment, the exact invocations, and a second finding — 14 of
@@ -602,7 +630,7 @@ Every claim in `check_claims.py` is marked **stable** or not:
 |---|---|---|
 | 34 library controls and 22 figure checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
 | Lessons 1–2, **stable claims** | ✓ | ✓ |
-| 9 TD-MPC2 numbers, recomputed from the committed results | ✓ needs neither GPU nor checkpoint | ✓ |
+| 12 integration numbers, recomputed from committed results | ✓ needs neither GPU, checkpoint nor scan | ✓ |
 | Lessons 1–2, recorded numbers | ✗ different CPU | ✓ |
 | Lessons 3–6 | ✗ wants a GPU or MuJoCo | ✓ |
 

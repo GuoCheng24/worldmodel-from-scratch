@@ -1,6 +1,6 @@
 # worldmodel-from-scratch
 
-[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-74%2F74%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-77%2F77%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **一个下午写出一个世界模型 —— 然后搞清楚它能信到第几步。**
 
@@ -148,6 +148,28 @@ TD-MPC2 确实记录了 `consistency_loss`——那是同样 3 步内、带 `rho
 归一化**的 MSE,在回放数据上算,上报到 wandb,但不进控制台、也不进保存的 CSV。
 它是一个训练损失,没有可读的尺度;代码库里没有任何东西回答
 *"在这个任务上,这个模型往前几步还值得信"*。
+
+## 同一种病,换一个和机器人毫无关系的领域
+
+一个把非增强 MRI 层变成增强层的模型,预测的正是"施加干预之后系统怎么演化"——
+而那个领域自己也开始这么说了,叙述已经从"图像翻译"移到了对比剂**动力学**。
+于是这里的第一个问题原样迁移过来:**最平凡的那个预测器,已经能拿多少分?**
+
+<p align="center">
+  <img src="integrations/dce-mri/dce-baselines.png" width="100%">
+</p>
+
+在公开的乳腺 DCE-MRI 上,一个 2M 参数的 U-Net 在**整层**上比"原样交回输入"高
+**+0.07 SSIM、+4.1 dB**。**而在病灶框内——就是那几百个、造影剂正是为它们才被注射的像素——
+它只和一张 256 格、只看单个体素、没有任何空间上下文的查找表打平。**
+把病灶处的损失加权 50 倍,纹丝不动;数据涨 5 倍,也只是追平那张查找表,没有超过。
+
+一张乳腺 MRI 层里大部分是脂肪、肌肉、空气和胸壁,它们都不强化。
+全局指标由"什么都不做才是对的"那部分主导,因此它**分不出**
+"建模了强化"和"保住了解剖"——这和 TD-MPC2 那个"规划器把任务做成了,
+而它用来打分的 rollout 还不如假设状态没变"是同一个形状。
+**[integrations/dce-mri/](integrations/dce-mri/)** 里有取数脚本、评测协议、
+一个**如实报成空结果的对照**,以及那个"跳过就会让全部结论变成虚构"的索引陷阱。
 
 复现只要两条命令:**[integrations/tdmpc2/](integrations/tdmpc2/)** 里有钉死的环境、
 精确的调用方式,以及第二个发现——官方发布的 312 个**单任务** checkpoint 里,
@@ -501,7 +523,7 @@ H 从 5 到 40 状态误差涨了 30 多倍,而排序还在,**规划器直到排
 |---|---|---|
 | 34 项库正对照 + 22 项配图检查(`tests/`) | ✓ Python 3.9 / 3.11 / 3.12 | ✓ |
 | 第 1–2 课的**稳定断言** | ✓ | ✓ |
-| 9 个 TD-MPC2 数字, 从已提交的结果文件重算 | ✓ 不需要 GPU 也不需要 checkpoint | ✓ |
+| 12 个集成实验数字, 从已提交的结果文件重算 | ✓ 不需要 GPU / checkpoint / 影像 | ✓ |
 | 第 1–2 课的记录数字 | ✗ CPU 不同 | ✓ |
 | 第 3–6 课 | ✗ 需 GPU 或 MuJoCo | ✓ |
 
