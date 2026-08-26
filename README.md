@@ -4,7 +4,7 @@
 
 **Build a world model in an afternoon — then find out how far you can trust it.**
 
-[中文版](README.zh-CN.md) · MIT · no simulator, no MuJoCo, no OpenGL
+[中文版](README.zh-CN.md) · MIT · no simulator, no MuJoCo, no OpenGL — until Lesson 5
 
 A world model predicts where you end up given where you are and what you do. It
 is the engine underneath model-based RL, robot policy evaluation, and the
@@ -234,11 +234,19 @@ Every number quoted below is produced by those two scripts. To check that
 claim rather than take it:
 
 ```bash
-for f in lessons/*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
-python check_claims.py /tmp/0*.txt        # 81/81 README claims backed
+# with the three packages above, Lessons 1-4:
+for f in lessons/0[1-4]*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
+python check_claims.py --lessons=1,2,3,4 /tmp/0*.txt     # 58/58
+
+# all six, once gymnasium and mujoco are installed:
+for f in lessons/*.py; do MUJOCO_GL=egl python "$f" > "/tmp/$(basename $f .py).txt"; done
+python check_claims.py /tmp/0*.txt                       # 81/81
 ```
 
-No `--config`, no download, no environment variables. If `torch` imports, it runs.
+No `--config` and no download anywhere. Lessons 1-4 need no environment variable
+either — if `torch` imports, they run. Lessons 5-6 want `MUJOCO_GL=egl` on a
+machine with no display, which is the one variable in this repository and is
+written into every command that needs it.
 
 ## The lessons
 

@@ -4,7 +4,7 @@
 
 **一个下午写出一个世界模型 —— 然后搞清楚它能信到第几步。**
 
-[English](README.md) · MIT · 不装仿真器、不装 MuJoCo、不装 OpenGL
+[English](README.md) · MIT · 不装仿真器、不装 MuJoCo、不装 OpenGL——直到第 5 课
 
 世界模型回答一件事:给定你在哪、你做什么,你会到哪里去。它是 model-based RL、
 机器人策略评测、以及这一代 world-action model 底下的引擎。教你**怎么造**一个的
@@ -201,11 +201,18 @@ MUJOCO_GL=egl python make_imagination.py           # 40 秒, 生成开头那张�
 下面引用的每一个数字都由这两个脚本产生。**不用信,可以直接查:**
 
 ```bash
-for f in lessons/*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
-python check_claims.py /tmp/0*.txt        # 81/81 条 README 断言有输出支撑
+# 只用上面那三个包,跑第 1–4 课:
+for f in lessons/0[1-4]*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
+python check_claims.py --lessons=1,2,3,4 /tmp/0*.txt     # 58/58
+
+# 装了 gymnasium 和 mujoco 之后,跑全部六课:
+for f in lessons/*.py; do MUJOCO_GL=egl python "$f" > "/tmp/$(basename $f .py).txt"; done
+python check_claims.py /tmp/0*.txt                       # 81/81
 ```
 
-没有 `--config`,没有下载,没有环境变量。`torch` 能 import 就能跑。
+没有 `--config`,哪一步都不用下载。第 1–4 课也不需要任何环境变量——`torch` 能 import 就能跑。
+第 5–6 课在无显示的机器上要 `MUJOCO_GL=egl`,这是本仓库**唯一**的一个环境变量,
+并且已写进每一条需要它的命令里。
 
 ## 课程
 
