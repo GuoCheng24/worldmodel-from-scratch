@@ -123,3 +123,31 @@ def test_readme_states_the_right_test_counts():
                                 (m.group(3), md, "markdown checks")):
             assert int(got) == want, ("%s says %s %s, the tests collect %d"
                                       % (name, got, what, want))
+
+
+def test_readme_states_the_right_library_and_lesson_sizes():
+    """Two more numbers that describe the repository and nothing checked.
+
+    The README said the library is 691 lines. It was 946 - 691 is what the
+    total came to before wm/diagnose.py, the file the README leads with, was
+    written. It also said each lesson is 60-260 lines, where they run 72 to
+    321. Both had been true once, which is the only way a number like this
+    goes wrong.
+    """
+    lib = sum(len(p.read_text().splitlines()) for p in sorted((ROOT / "wm").glob("*.py")))
+    sizes = [len(p.read_text().splitlines())
+             for p in sorted((ROOT / "lessons").glob("*.py"))]
+    for name, pattern, want in (
+            ("README.md", r"\*\*(\d+) lines\*\*", lib),
+            ("README.zh-CN.md", r"\*\*(\d+) 行\*\*", lib)):
+        m = re.search(pattern, (ROOT / name).read_text())
+        assert m, "%s no longer states the library size" % name
+        assert int(m.group(1)) == want, ("%s says the library is %s lines, wm/ is %d"
+                                         % (name, m.group(1), want))
+    for name, pattern in (("README.md", r"standalone (\d+)-(\d+)"),
+                          ("README.zh-CN.md", r"每一课再 (\d+)–(\d+) 行")):
+        m = re.search(pattern, (ROOT / name).read_text())
+        assert m, "%s no longer states the lesson size range" % name
+        assert (int(m.group(1)), int(m.group(2))) == (min(sizes), max(sizes)), (
+            "%s says lessons run %s-%s lines, they run %d-%d"
+            % (name, m.group(1), m.group(2), min(sizes), max(sizes)))

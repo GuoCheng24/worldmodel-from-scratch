@@ -56,7 +56,7 @@ go wrong, and they show up in their issue trackers verbatim:
 |---|---|---|
 | **Install** | `mujoco.FatalError: gladLoadGL`, `No module named gym.envs.atari`, `Installation broken again` | **`torch`, `numpy`, `matplotlib`.** That is the whole dependency list for Lessons 1–4. Lessons 5–6 add `gymnasium` and `mujoco`, with the one environment variable that makes them work spelled out and tested. |
 | **Train** | days of GPU time, and issues titled *"Can you share checkpoint of trained models?"* | **about 10 s and 50 s** on one GPU, together under a minute. Nothing to download. |
-| **Read** | issues titled *"Add project explanation"*, *"Why is dyn_discrete always True?"* | The library you have to read is **691 lines**; each lesson is a standalone 60-260 more. Commented for why rather than what. |
+| **Read** | issues titled *"Add project explanation"*, *"Why is dyn_discrete always True?"* | The library you have to read is **946 lines**; each lesson is a standalone 72-321 more. Commented for why rather than what. |
 | **Break** | — | **This is the point of the repo.** |
 
 ## `wm.diagnose()` — the number the reference implementations do not give you
@@ -491,8 +491,8 @@ maximum over sampled states. Across four runs it moved from 1403 to 10262 on
 HalfCheetah and from 9.2 to 23.2 on InvertedPendulum, while Reacher's failure step
 came out 18, 21, 22 and 26. This table used to say the step "moves by one between
 runs" — that was measured wrong, and nothing checked it, which is why the numbers
-here had drifted five steps and 6000 from the run that produced them. Both are
-checked now. What does not move is the middle column against the right one: single
+here had drifted by five steps and a factor of 1.7 from the run that produced
+everything else on this page. Both are checked now. What does not move is the middle column against the right one: single
 digits against tens.</sub>
 
 **What survives, and what needed a qualification.** The horizon spread carried
@@ -518,16 +518,16 @@ sustained rate:
 
 | | one-step gain | `exp(λ·Δt)` | ratio |
 |---|---|---|---|
-| Reacher (arm) | 1.00 | 1.020 | **1.0** |
-| Pusher (arm) | 0.93 | 1.058 | **0.9** |
-| Walker2d (leg) | 5.35 | 1.032 | **5.2** |
-| HalfCheetah (leg) | 14.63 | 1.313 | **11.1** |
+| Reacher (arm) | 1.00 | 1.019 | **1.0** |
+| Pusher (arm) | 0.94 | 1.054 | **0.9** |
+| Walker2d (leg) | 5.60 | 1.034 | **5.4** |
+| HalfCheetah (leg) | 13.10 | 1.315 | **10.0** |
 
 A random perturbation first picks up the largest singular value of the
 Jacobian; only once it rotates into the growing direction does it settle to λ.
 **The textbook bound compounds the first number as if it were the second.** On
 an arm the two coincide and the bound is merely loose. On a leg they differ by
-5–11x *per step*, which is why Lesson 5 saw it write rollouts off at step 2.
+5–10x *per step*, which is why Lesson 5 saw it write rollouts off at step 2.
 
 **Can a learned world model actually drive the arm?** Reacher, from a random-play
 dataset with no reward signal during training:
@@ -643,7 +643,7 @@ Every claim in `check_claims.py` is marked **stable** or not:
 
 | | runs in CI | checked before release |
 |---|---|---|
-| 35 library controls, 27 figure checks and 13 markdown checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
+| 35 library controls, 28 figure checks and 13 markdown checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
 | Lessons 1–2, **stable claims** | ✓ | ✓ |
 | 12 integration numbers, recomputed from committed results | ✓ needs neither GPU, checkpoint nor scan | ✓ |
 | Lessons 1–2, recorded numbers | ✗ different CPU | ✓ |
