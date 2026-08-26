@@ -32,7 +32,7 @@ from envs import make_env
 from tdmpc2 import TDMPC2
 
 K = 20          # how far ahead the question is asked
-EVERY = 6       # keep every Nth frame, so the gif stays small
+EVERY = 8       # keep every Nth frame, so the gif stays small
 FPS = 7
 TASKS = ["cheetah-run", "cartpole-swingup"]   # one that recovers, one that does not
 INK, BLUE, RED, GREY = "#1a1a1a", "#1a4f7a", "#c0392b", "#e2e2e2"
@@ -97,7 +97,9 @@ def main(cfg):
 
 
 def draw(data, cfg):
-    plt.rcParams.update({"font.size": 8.4, "figure.dpi": 84,
+    # 6.9in at 90 dpi is 621 px, which is what the README displays it at:
+    # a gif shown wider than it was rendered is just a blurred gif.
+    plt.rcParams.update({"font.size": 8.4, "figure.dpi": 90,
                          "font.family": ["Liberation Sans", "DejaVu Sans", "sans-serif"]})
     n = min(d[3] for d in data)
     # GitHub shows the first frame until a reader presses play, and a reader who

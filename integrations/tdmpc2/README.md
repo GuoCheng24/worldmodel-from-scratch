@@ -6,6 +6,8 @@ repository; the whole thing is a caller.
 
 ![](tdmpc2-diagnosis.png)
 
+![](tdmpc2-curves.png)
+
 ## The question
 
 TD-MPC2 plans by rolling its learned dynamics forward and scoring the result:
@@ -82,7 +84,7 @@ it.
 **The horizon is not one number.** Asking the same question at every step of one
 episode, rather than once per model:
 
-![](tdmpc2-trust.gif)
+<img src="tdmpc2-trust.gif" width="69%">
 
 <sub>mt30-48M, one episode each. The number on each frame is how many steps
 ahead the model is still worth rolling out from that exact moment. It collapses

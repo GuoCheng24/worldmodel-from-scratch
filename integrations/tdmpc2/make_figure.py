@@ -6,6 +6,13 @@ Nothing here computes a result; it plots the committed .npz files, and every
 summary it takes is a median or a percentile. Lesson 2 of this repository is
 that the mean over rollouts describes a runaway minority rather than the
 typical one, so no panel here averages.
+
+Two files come out, and the split is about legibility rather than taste. A
+figure shown at 100% in a README is about 900 px wide, so the size its labels
+end up at is `pointsize x 12.44 / figure_width_in_inches` - the dpi cancels.
+Three panels across needed 15.6in, which put the labels at 7 px on the page,
+smaller than anything else in the repository and too small to read. Two panels
+at 11.4in put them at 9.4 px, which matches the lesson figures.
 """
 import os, sys
 import numpy as np, matplotlib
@@ -25,16 +32,64 @@ big = sizes[-1]
 tasks = F[big]["tasks"]
 K = runs[big]["err__" + tasks[0]].shape[1]
 
-plt.rcParams.update({"font.size": 8.8, "axes.linewidth": .8, "figure.dpi": 160,
+plt.rcParams.update({"font.size": 8.6, "axes.linewidth": .8, "figure.dpi": 160,
                      "font.family": ["Liberation Sans", "DejaVu Sans", "sans-serif"]})
 INK, RED, GREY = "#1a1a1a", "#c0392b", "#8a8a8a"
 SHADE = ["#c8d8e4", "#5b8fb0", "#1a4f7a"][-len(sizes):]
 COL = ["#1a4f7a", "#c0392b", "#2e7d5b", "#b8860b", "#6a4c93", "#0e8a8a", "#d4703a", "#7a7a7a"]
 
-fig, AX = plt.subplots(1, 3, figsize=(15.6, 4.35))
+FIG_W = 11.4      # keeps labels at 9.4 px on a 900 px README column
+fig, AX = plt.subplots(1, 2, figsize=(FIG_W, 4.3))
 
+# -- (b) the decision-relevant share, at the planner's own horizon -----------
+b, y = AX[0], np.arange(len(tasks))[::-1]
+for j, (s, sh) in enumerate(zip(sizes, SHADE)):
+    v = [F[s]["loses"][t] for t in tasks]
+    b.barh(y + (j - (len(sizes) - 1) / 2) * .26, v, .25, color=sh,
+           label="mt30-" + s, edgecolor="white", linewidth=.4)
+b.axvline(50, color=RED, lw=1.2, ls="--")
+b.text(51, -.72, "half the starts", color=RED, fontsize=7.4, va="bottom")
+b.set_yticks(y); b.set_yticklabels(tasks, fontsize=8)
+b.set_xlabel("share of starts where the k=%d prediction loses to standing still" % PLAN_H)
+b.set_title("Worse than assuming nothing changed", loc="left", fontsize=9.8)
+b.set_xlim(0, 104); b.set_ylim(-1.1, len(tasks) - .4)
+# The bars stop well short of the right edge on every row but one, so the
+# key goes there rather than over the title or over the data.
+b.legend(fontsize=7.8, frameon=False, ncol=1, loc="center right",
+         bbox_to_anchor=(1.02, .46), handlelength=1.1, labelspacing=.9)
+b.spines[["top", "right"]].set_visible(False)
+
+# -- (c) the horizon is not one number, on somebody else's model -------------
+c = AX[1]
+for i, t in enumerate(tasks):
+    p5, p50, p95, cens = F[big]["trust"][t]
+    yy = len(tasks) - 1 - i
+    c.plot([p5, p95], [yy, yy], lw=5, color="#c8d8e4", solid_capstyle="round")
+    c.plot([p50], [yy], "o", ms=6, color="#1a4f7a", zorder=3)
+    if cens:
+        c.annotate("", xy=(K + 1.6, yy), xytext=(K - .2, yy),
+                   arrowprops=dict(arrowstyle="-|>", color="#5b8fb0", lw=1.2))
+c.axvline(PLAN_H, color=RED, lw=1.3)
+c.text(PLAN_H + .35, -.55, "the %d steps the planner uses" % PLAN_H,
+       color=RED, fontsize=7.4, va="bottom")
+c.set_yticks(np.arange(len(tasks))[::-1]); c.set_yticklabels(tasks, fontsize=8)
+c.set_xlabel("steps the prediction still beats standing still, per start")
+c.set_title("mt30-%s: one model, one task, no single horizon" % big,
+            loc="left", fontsize=9.8)
+c.set_xlim(0, K + 2.4); c.set_ylim(-1.1, len(tasks) - .4)
+c.set_xticks([1, 5, 10, 15, 20])
+c.spines[["top", "right"]].set_visible(False)
+
+fig.tight_layout()
+out = os.path.join(HERE, "tdmpc2-diagnosis.png")
+fig.savefig(out, bbox_inches="tight")
+print("  wrote %s" % out)
+
+# -- the error curves, on their own, where they have room to be read ---------
+figa, AXa = plt.subplots(1, 1, figsize=(7.4, 4.3))
+AXa = [AXa]
 # -- (a) the error curve, per task, as a share of the latent's real motion ----
-a = AX[0]
+a = AXa[0]
 a.axvspan(1, PLAN_H, color=GREY, alpha=.15, lw=0)
 r = runs[big]
 YMAX = 190
@@ -76,53 +131,15 @@ a.text(1.3, 104, "error equals the motion: the prediction adds nothing",
 a.text(PLAN_H, YMAX - 4, "  the %d steps the planner rolls out" % PLAN_H,
        fontsize=7.4, color=INK, va="top")
 a.set_xlabel("open-loop step k"); a.set_ylabel("median error, % of the latent's real motion")
-a.set_title("(a)  mt30-%s: how fast the prediction stops paying" % big, loc="left", fontsize=9.6)
+a.set_title("mt30-%s: how fast the prediction stops paying" % big, loc="left", fontsize=9.8)
 a.set_xlim(1, K + 6.2); a.set_ylim(0, YMAX); a.set_xticks([1, 5, 10, 15, 20])
 a.spines[["top", "right"]].set_visible(False)
 
-# -- (b) the decision-relevant share, at the planner's own horizon -----------
-b, y = AX[1], np.arange(len(tasks))[::-1]
-for j, (s, sh) in enumerate(zip(sizes, SHADE)):
-    v = [F[s]["loses"][t] for t in tasks]
-    b.barh(y + (j - (len(sizes) - 1) / 2) * .26, v, .25, color=sh,
-           label="mt30-" + s, edgecolor="white", linewidth=.4)
-b.axvline(50, color=RED, lw=1.2, ls="--")
-b.text(51, -.72, "half the starts", color=RED, fontsize=7.4, va="bottom")
-b.set_yticks(y); b.set_yticklabels(tasks, fontsize=8)
-b.set_xlabel("share of starts where the k=%d prediction loses to standing still" % PLAN_H)
-b.set_title("(b)  Worse than assuming nothing changed", loc="left", fontsize=9.6)
-b.set_xlim(0, 104); b.set_ylim(-1.1, len(tasks) - .4)
-# The bars stop well short of the right edge on every row but one, so the
-# key goes there rather than over the title or over the data.
-b.legend(fontsize=7.8, frameon=False, ncol=1, loc="center right",
-         bbox_to_anchor=(1.02, .46), handlelength=1.1, labelspacing=.9)
-b.spines[["top", "right"]].set_visible(False)
+figa.tight_layout()
+outa = os.path.join(HERE, "tdmpc2-curves.png")
+figa.savefig(outa, bbox_inches="tight")
+print("  wrote %s" % outa)
 
-# -- (c) the horizon is not one number, on somebody else's model -------------
-c = AX[2]
-for i, t in enumerate(tasks):
-    p5, p50, p95, cens = F[big]["trust"][t]
-    yy = len(tasks) - 1 - i
-    c.plot([p5, p95], [yy, yy], lw=5, color="#c8d8e4", solid_capstyle="round")
-    c.plot([p50], [yy], "o", ms=6, color="#1a4f7a", zorder=3)
-    if cens:
-        c.annotate("", xy=(K + 1.6, yy), xytext=(K - .2, yy),
-                   arrowprops=dict(arrowstyle="-|>", color="#5b8fb0", lw=1.2))
-c.axvline(PLAN_H, color=RED, lw=1.3)
-c.text(PLAN_H + .35, -.55, "the %d steps the planner uses" % PLAN_H,
-       color=RED, fontsize=7.4, va="bottom")
-c.set_yticks(np.arange(len(tasks))[::-1]); c.set_yticklabels(tasks, fontsize=8)
-c.set_xlabel("steps the prediction still beats standing still, per start")
-c.set_title("(c)  mt30-%s: one model, one task, no single horizon" % big,
-            loc="left", fontsize=9.6)
-c.set_xlim(0, K + 2.4); c.set_ylim(-1.1, len(tasks) - .4)
-c.set_xticks([1, 5, 10, 15, 20])
-c.spines[["top", "right"]].set_visible(False)
-
-fig.tight_layout()
-out = os.path.join(HERE, "tdmpc2-diagnosis.png")
-fig.savefig(out, bbox_inches="tight")
-print("  wrote %s" % out)
-for s in sizes:
+for s_ in sizes:
     print("  mt30-%-5s at k=%d loses to standing still on median %.0f%% of starts (%.0f-%.0f%%)"
-          % (s, PLAN_H, F[s]["median"], F[s]["lo"], F[s]["hi"]))
+          % (s_, PLAN_H, F[s_]["median"], F[s_]["lo"], F[s_]["hi"]))

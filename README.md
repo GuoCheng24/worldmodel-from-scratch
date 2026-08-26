@@ -30,12 +30,16 @@ animation, shown there. This still is here because GitHub wraps animated images
 in a play control, so a reader who has asked for reduced motion sees one frame.</sub>
 
 <p align="center">
-  <img src="figures/rollout-error.png" width="100%">
+  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
 </p>
 
-<sub>All four panels are produced by <code>lessons/02_why_rollouts_drift.py</code>
-in under a minute on one GPU. Nothing is illustrative — every number is measured,
-and every interval comes from resampling trajectories.</sub>
+<sub>And the same measurement pointed at a model this repository did not train:
+TD-MPC2's released <code>mt30</code> checkpoints, through TD-MPC2's own code.
+<b>Left</b> — at the horizon its planner rolls out to, how often the learned
+dynamics are beaten by assuming the state did not change. Forty-eight times the
+parameters fixes that; another 6.6x does not, and on <code>cartpole-swingup</code>
+it gets worse at every size. <b>Right</b> — how many steps the prediction keeps
+winning, which is not one number even within a single task.</sub>
 
 ---
 
@@ -114,8 +118,12 @@ using TD-MPC2's own code and environments, loaded through their own
 `load_state_dict` with `strict=True`.
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
+  <img src="integrations/tdmpc2/tdmpc2-curves.png" width="78%">
 </p>
+
+<sub>How fast the prediction stops paying, per task, for the largest released
+model. The shaded band is the three steps the planner rolls out; the dashed line
+is where the error equals the distance the latent actually travels.</sub>
 
 TD-MPC2 plans by rolling its learned dynamics forward **3 steps** and scoring
 the result — on every task. Whether that plan is worth anything turns on a
@@ -135,7 +143,7 @@ steps is worse than not rolling them forward, on the task the planner is being
 asked to solve. Scale fixed the catastrophic cases and then stopped.
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="82%">
+  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="69%">
 </p>
 
 <sub>Nor is it one number per model. Asked at every step of a single episode —
@@ -199,6 +207,19 @@ measures whether it describes anything real.
 It does not. On the pendulum it sits **6780x above the measurement at step 40**
 and declares the rollout worthless at **step 25**, on a system whose typical
 error is still 2% of the state size at step 90. The gap is on every seed.
+
+<p align="center">
+  <img src="figures/rollout-error.png" width="100%">
+</p>
+
+<sub>The four measurements this lesson makes. <b>(a)</b> the textbook bound
+against the pendulum it is supposed to describe. <b>(b)</b> Lorenz, with error
+injection separated from amplification. <b>(c)</b> the same rollouts summarised
+three ways, where only the median recovers λ. <b>(d)</b> how far one model gets
+on one task, as a distribution rather than a number. All four come from
+<code>lessons/02_why_rollouts_drift.py</code> in under a minute on one GPU;
+nothing is illustrative, and every interval comes from resampling
+trajectories.</sub>
 
 <p align="center">
   <img src="figures/drift.gif" width="88%">
@@ -476,7 +497,7 @@ an arm the two coincide and the bound is merely loose. On a leg they differ by
 dataset with no reward signal during training:
 
 <p align="center">
-  <img src="figures/arm.gif" width="86%">
+  <img src="figures/arm.gif" width="76%">
 </p>
 
 | planner | reward/step | final fingertip-to-target |
@@ -554,7 +575,7 @@ Every claim in `check_claims.py` is marked **stable** or not:
 
 | | runs in CI | checked before release |
 |---|---|---|
-| 34 library controls (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
+| 34 library controls and 22 figure checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
 | Lessons 1–2, **stable claims** | ✓ | ✓ |
 | 7 TD-MPC2 numbers, recomputed from the committed `.npz` | ✓ needs neither GPU nor checkpoint | ✓ |
 | Lessons 1–2, recorded numbers | ✗ different CPU | ✓ |

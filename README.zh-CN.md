@@ -25,11 +25,14 @@
 这里用静态图,是因为 <b>GitHub 会给动图套上播放控件</b>——开了"减少动态效果"的读者只看得到一帧。</sub>
 
 <p align="center">
-  <img src="figures/rollout-error.png" width="100%">
+  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
 </p>
 
-<sub>四张图全部由 <code>lessons/02_why_rollouts_drift.py</code> 在单卡一分钟内产生。
-没有一个数字是示意的,全部是实测,每个置信区间都来自对轨迹的重采样。</sub>
+<sub>以及把同一套测量对准一个**不是这个仓训的**模型:TD-MPC2 官方发布的
+<code>mt30</code> checkpoint,走它们自己的代码。<b>左</b>——在它的规划器真正前推的视界处,
+学到的动力学有多大比例的起点上输给"假设状态没变"。参数涨 48 倍能修好,再涨 6.6 倍不能;
+而 <code>cartpole-swingup</code> 上它随规模逐级恶化。<b>右</b>——预测还能赢几步,
+这个数**即便在同一个任务内部也不是一个数**。</sub>
 
 ---
 
@@ -100,8 +103,11 @@ world model rollout diagnosis   600 trajectories x 900 steps, state dim 3
 自己的代码和环境,经它们自己的 `load_state_dict` 以 `strict=True` 加载。
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
+  <img src="integrations/tdmpc2/tdmpc2-curves.png" width="78%">
 </p>
+
+<sub>最大的那个发布模型上,每个任务的预测多快就不再划算。灰带是规划器前推的那 3 步;
+虚线是"误差等于潜变量实际移动距离"的位置。</sub>
 
 TD-MPC2 规划时把学到的动力学**前推 3 步**再打分——在每一个任务上都是 3 步。
 这个规划值不值钱,取决于它和一个**最平凡的基线**比:在那个视界处,
@@ -118,7 +124,7 @@ TD-MPC2 规划时把学到的动力学**前推 3 步**再打分——在每一�
 而这正是规划器被要求解决的那个任务。规模修掉了灾难性的那几个,然后就停了。
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="82%">
+  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="69%">
 </p>
 
 <sub>它也不是"每个模型一个数"。把同一个问题问在一集里的**每一步**——
@@ -175,6 +181,17 @@ python check_claims.py /tmp/0*.txt        # 72/72 条 README 断言有输出支�
 
 答案是:什么也没描述。在摆上,它**第 40 步比实测高出 6780 倍**,并在**第 25 步**就宣布 rollout 报废,
 而这个系统到第 90 步典型误差仍只有状态尺度的 2%。这个差距在每个种子上都在。
+
+<p align="center">
+  <img src="figures/rollout-error.png" width="100%">
+</p>
+
+<sub>这一课做的四个测量。<b>(a)</b> 教科书那条界,对上它本该描述的摆。
+<b>(b)</b> Lorenz,把误差**注入**和误差**放大**分开。
+<b>(c)</b> 同一批 rollout 用三种方式汇总,只有中位数还原出 λ。
+<b>(d)</b> 同一个模型在同一个任务上能走多远——是个**分布**,不是一个数。
+四张全部由 <code>lessons/02_why_rollouts_drift.py</code> 在单卡一分钟内产生;
+没有一个数字是示意的,每个置信区间都来自对轨迹的重采样。</sub>
 
 <p align="center">
   <img src="figures/drift.gif" width="88%">
@@ -399,7 +416,7 @@ export MUJOCO_GL=egl        # 必须在 import mujoco 或 gymnasium 之前
 **学到的世界模型能不能真的驱动这条臂?** Reacher,数据来自随机游玩,训练期间没有任何奖励信号:
 
 <p align="center">
-  <img src="figures/arm.gif" width="86%">
+  <img src="figures/arm.gif" width="76%">
 </p>
 
 | 规划器 | 每步回报 | 终态指尖-目标距离 |
@@ -461,7 +478,7 @@ H 从 5 到 40 状态误差涨了 30 多倍,而排序还在,**规划器直到排
 
 | | CI 里跑 | 发版前本地核验 |
 |---|---|---|
-| 34 项库正对照(`tests/`) | ✓ Python 3.9 / 3.11 / 3.12 | ✓ |
+| 34 项库正对照 + 22 项配图检查(`tests/`) | ✓ Python 3.9 / 3.11 / 3.12 | ✓ |
 | 第 1–2 课的**稳定断言** | ✓ | ✓ |
 | 7 个 TD-MPC2 数字, 从已提交的 `.npz` 重算 | ✓ 不需要 GPU 也不需要 checkpoint | ✓ |
 | 第 1–2 课的记录数字 | ✗ CPU 不同 | ✓ |
