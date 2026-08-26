@@ -18,7 +18,7 @@ produced by the scripts in this directory.
 |---|---|---|
 | **B0** | hand back the pre-contrast slice unchanged | 0 |
 | **B1** | a global affine `a·pre + b`, one pair per dynamic phase, fitted on the training patients | 2 per phase |
-| **B2** | `E[post &#124; pre intensity]`, a 256-entry lookup table fitted on the training patients. Sees one voxel and no context. | 256 per phase |
+| **B2** | `E[post \| pre intensity]`, a 256-entry lookup table fitted on the training patients. Sees one voxel and no context. | 256 per phase |
 
 And, for scale, a plain 2M-parameter U-Net that sees the whole slice and the
 phase index, trained to predict `post - pre`.
