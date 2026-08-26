@@ -19,7 +19,7 @@ an answer — and **`wm.diagnose()`**, one call that makes the same measurement 
 anything, including somebody else's published model.
 
 <p align="center">
-  <img src="figures/imagination-invertedpendulum.gif" width="69%">
+  <img src="figures/imagination-invertedpendulum.gif" width="69%" alt="Two rendered panels side by side: the real cart-pole stays upright while the same model's imagined one falls over, with both pole angles plotted below">
 </p>
 
 <sub><b>A model good enough to control a system, wrong about it within about
@@ -34,7 +34,7 @@ into MuJoCo and rendered, which a latent-space model cannot do.
 <code>make_imagination.py</code>.</sub>
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
+  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%" alt="Bars of how often TD-MPC2's three-step prediction is worse than assuming nothing changed, per task at three model sizes, beside the spread of usable horizons">
 </p>
 
 <sub>And the same measurement pointed at a model this repository did not train:
@@ -122,7 +122,7 @@ using TD-MPC2's own code and environments, loaded through their own
 `load_state_dict` with `strict=True`.
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-curves.png" width="78%">
+  <img src="integrations/tdmpc2/tdmpc2-curves.png" width="78%" alt="Eight curves of open-loop error as a percentage of the latent's real motion, crossing 100 percent at widely different steps">
 </p>
 
 <sub>How fast the prediction stops paying, per task, for the largest released
@@ -159,7 +159,7 @@ will succeed — the same thing the animation at the top of this file shows, on 
 system small enough to draw.
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="69%">
+  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="69%" alt="Two dm_control episodes playing, each captioned with how many steps its prediction is still worth rolling out, over a time series of that number">
 </p>
 
 <sub>Nor is it one number per model. Asked at every step of a single episode —
@@ -181,7 +181,7 @@ started to say so - the framing has moved from image translation to contrast
 predictor already score?**
 
 <p align="center">
-  <img src="integrations/dce-mri/dce-baselines.png" width="100%">
+  <img src="integrations/dce-mri/dce-baselines.png" width="100%" alt="Bars of SSIM for three predictors scored over the whole slice and inside the lesion box, and three lesion-box variants that barely differ">
 </p>
 
 On public breast DCE-MRI, a 2M-parameter U-Net beats handing back the input by
@@ -254,7 +254,7 @@ and declares the rollout worthless at **step 25**, on a system whose typical
 error is still 2% of the state size at step 90. The gap is on every seed.
 
 <p align="center">
-  <img src="figures/rollout-error.png" width="100%">
+  <img src="figures/rollout-error.png" width="100%" alt="Four panels: the textbook bound diverging from measured error, Lorenz error growth, the fitted rate under three averages, and a histogram of usable horizons">
 </p>
 
 <sub>The four measurements this lesson makes. <b>(a)</b> the textbook bound
@@ -267,7 +267,7 @@ nothing is illustrative, and every interval comes from resampling
 trajectories.</sub>
 
 <p align="center">
-  <img src="figures/drift.gif" width="88%">
+  <img src="figures/drift.gif" width="88%" alt="A typical rollout and a runaway one animating side by side, their error curves growing apart on a log scale">
 </p>
 
 <sub>The same start and the same torques, run through the true dynamics and
@@ -400,7 +400,7 @@ Planning breaks when the *ranking* breaks. That is the number to measure before
 trusting a planner, and it is not the one Lesson 2 taught you to compute.
 
 <p align="center">
-  <img src="figures/planning.png" width="100%">
+  <img src="figures/planning.png" width="100%" alt="Reward against planning horizon for three models of different quality, beside the rank correlation of candidate returns that decides which of them plans well">
 </p>
 
 **The trap this lesson opens with.** A planner needs two dynamics: one to
@@ -444,7 +444,7 @@ collapse detector on its own, and the probe only means anything against a
 floor — a random encoder gets 0.500 for free.
 
 <p align="center">
-  <img src="figures/collapse.png" width="100%">
+  <img src="figures/collapse.png" width="100%" alt="Three panels: the lowest training loss belongs to the collapsed model, two collapse detectors disagreeing, and probe R-squared against an untrained-encoder floor">
 </p>
 
 **5 · Real environments.** Everything so far ran on two systems written by hand
@@ -523,11 +523,11 @@ an arm the two coincide and the bound is merely loose. On a leg they differ by
 dataset with no reward signal during training:
 
 <p align="center">
-  <img src="figures/arm.gif" width="76%">
+  <img src="figures/arm.gif" width="76%" alt="A two-link arm under random actions beside the same arm driven by a planner using the learned model, with tip-to-target distance below">
 </p>
 
 <p align="center">
-  <img src="figures/arm-still.png" width="94%">
+  <img src="figures/arm-still.png" width="94%" alt="Six rendered frames in two rows, random actions above and model-based planning below, at steps 0, 20 and 60 with tip-to-target distances">
 </p>
 
 <sub>The same run as three frames, because GitHub wraps animated images in a play
@@ -560,7 +560,7 @@ The state drifts by more than 30x between H=5 and H=40 while the ranking holds,
 and the planner pays nothing until the ranking goes.
 
 <p align="center">
-  <img src="figures/real-robots.png" width="100%">
+  <img src="figures/real-robots.png" width="100%" alt="Three panels: when the textbook bound calls a rollout worthless versus when it actually fails, one-step versus sustained amplification per robot, and reward against planning horizon">
 </p>
 
 ## Open questions
@@ -632,7 +632,7 @@ Every claim in `check_claims.py` is marked **stable** or not:
 
 | | runs in CI | checked before release |
 |---|---|---|
-| 35 library controls, 27 figure checks and 9 markdown checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
+| 35 library controls, 27 figure checks and 13 markdown checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
 | Lessons 1–2, **stable claims** | ✓ | ✓ |
 | 12 integration numbers, recomputed from committed results | ✓ needs neither GPU, checkpoint nor scan | ✓ |
 | Lessons 1–2, recorded numbers | ✗ different CPU | ✓ |

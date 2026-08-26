@@ -16,7 +16,7 @@
 一次调用就能把同样的测量做在任何模型上,**包括别人已经发表的模型**。
 
 <p align="center">
-  <img src="figures/imagination-invertedpendulum.gif" width="69%">
+  <img src="figures/imagination-invertedpendulum.gif" width="69%" alt="并排两个渲染画面:真实的倒立摆一直立着,同一个模型想象出的那个倒了下去,下方是两者的杆角度曲线">
 </p>
 
 <sub><b>一个好到足以控制这个系统的模型,二十步左右就已经搞错了它。</b>
@@ -28,7 +28,7 @@
 <code>make_imagination.py</code>。</sub>
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
+  <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%" alt="柱状图:TD-MPC2 的三步预测有多大比例的起点不如「假设状态没变」,按任务分、三种模型规模;右侧是可用步数的分布">
 </p>
 
 <sub>以及把同一套测量对准一个**不是这个仓训的**模型:TD-MPC2 官方发布的
@@ -106,7 +106,7 @@ world model rollout diagnosis   600 trajectories x 900 steps, state dim 3
 自己的代码和环境,经它们自己的 `load_state_dict` 以 `strict=True` 加载。
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-curves.png" width="78%">
+  <img src="integrations/tdmpc2/tdmpc2-curves.png" width="78%" alt="八条曲线:开环误差占潜空间真实位移的百分比,在相差很大的步数处越过 100%">
 </p>
 
 <sub>最大的那个发布模型上,每个任务的预测多快就不再划算。灰带是规划器前推的那 3 步;
@@ -136,7 +136,7 @@ checkpoint,`cartpole-swingup`——三个规模上预测最差的那个任务—
 只不过那里的系统小到可以直接画出来。
 
 <p align="center">
-  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="69%">
+  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="69%" alt="两段 dm_control 回合在播放,各自标着当前预测还值得往前滚多少步,下方是该数字随时间的变化">
 </p>
 
 <sub>它也不是"每个模型一个数"。把同一个问题问在一集里的**每一步**——
@@ -155,7 +155,7 @@ TD-MPC2 确实记录了 `consistency_loss`——那是同样 3 步内、带 `rho
 于是这里的第一个问题原样迁移过来:**最平凡的那个预测器,已经能拿多少分?**
 
 <p align="center">
-  <img src="integrations/dce-mri/dce-baselines.png" width="100%">
+  <img src="integrations/dce-mri/dce-baselines.png" width="100%" alt="柱状图:三个预测器在整层与病灶框内的 SSIM,以及三个几乎没有差别的病灶框变体">
 </p>
 
 在公开的乳腺 DCE-MRI 上,一个 2M 参数的 U-Net 在**整层**上比"原样交回输入"高
@@ -218,7 +218,7 @@ python check_claims.py /tmp/0*.txt        # 77/77 条 README 断言有输出支�
 而这个系统到第 90 步典型误差仍只有状态尺度的 2%。这个差距在每个种子上都在。
 
 <p align="center">
-  <img src="figures/rollout-error.png" width="100%">
+  <img src="figures/rollout-error.png" width="100%" alt="四个面板:教科书上界与实测误差的分离、Lorenz 的误差增长、三种平均下的拟合增长率、可用步数直方图">
 </p>
 
 <sub>这一课做的四个测量。<b>(a)</b> 教科书那条界,对上它本该描述的摆。
@@ -229,7 +229,7 @@ python check_claims.py /tmp/0*.txt        # 77/77 条 README 断言有输出支�
 没有一个数字是示意的,每个置信区间都来自对轨迹的重采样。</sub>
 
 <p align="center">
-  <img src="figures/drift.gif" width="88%">
+  <img src="figures/drift.gif" width="88%" alt="一个典型 rollout 与一个失控 rollout 并排播放,右侧对数坐标上两条误差曲线逐渐分开">
 </p>
 
 <sub>同一个起点、同一串力矩,分别喂给真实动力学和模型。大多数 rollout 始终重合;
@@ -335,7 +335,7 @@ python check_claims.py /tmp/0*.txt        # 77/77 条 README 断言有输出支�
 该量的数,而它不是第二课教你算的那个。
 
 <p align="center">
-  <img src="figures/planning.png" width="100%">
+  <img src="figures/planning.png" width="100%" alt="三个不同质量的模型在各规划步长下的回报,旁边是候选动作回报的秩相关——它才决定谁规划得好">
 </p>
 
 **这一课开场的那个陷阱。** 规划器需要两套动力学:一套用来想象,一套用来真正推动世界。
@@ -373,7 +373,7 @@ std 对方向是盲的,有效秩由谱的形状算出、对尺度是盲的。
 随机编码器白拿 0.500。
 
 <p align="center">
-  <img src="figures/collapse.png" width="100%">
+  <img src="figures/collapse.png" width="100%" alt="三个面板:最低训练损失属于已坍缩的模型、两个坍缩检测器给出相反结论、探针 R² 对照未训练编码器的地板线">
 </p>
 
 **第 5 课 · 真实环境。** 前面全部跑在本仓手写的两个系统上。这一课把同样的测量
@@ -438,11 +438,11 @@ export MUJOCO_GL=egl        # 必须在 import mujoco 或 gymnasium 之前
 **学到的世界模型能不能真的驱动这条臂?** Reacher,数据来自随机游玩,训练期间没有任何奖励信号:
 
 <p align="center">
-  <img src="figures/arm.gif" width="76%">
+  <img src="figures/arm.gif" width="76%" alt="两连杆机械臂:左侧随机动作,右侧由使用学得模型的规划器驱动,下方是指尖到目标的距离">
 </p>
 
 <p align="center">
-  <img src="figures/arm-still.png" width="94%">
+  <img src="figures/arm-still.png" width="94%" alt="六帧渲染画面分两行,上排随机动作、下排基于模型的规划,分别在第 0、20、60 步并标注指尖到目标距离">
 </p>
 
 <sub>同一次运行取三帧的静态版。<b>GitHub 会给动图套上播放控件</b>,
@@ -472,7 +472,7 @@ export MUJOCO_GL=egl        # 必须在 import mujoco 或 gymnasium 之前
 H 从 5 到 40 状态误差涨了 30 多倍,而排序还在,**规划器直到排序垮掉才开始付代价**。
 
 <p align="center">
-  <img src="figures/real-robots.png" width="100%">
+  <img src="figures/real-robots.png" width="100%" alt="三个面板:教科书上界判 rollout 无用的步数 vs 实际失效的步数、各机器人的单步放大 vs 持续放大、回报随规划步长的变化">
 </p>
 
 ## 开放问题
@@ -525,7 +525,7 @@ H 从 5 到 40 状态误差涨了 30 多倍,而排序还在,**规划器直到排
 
 | | CI 里跑 | 发版前本地核验 |
 |---|---|---|
-| 35 项库正对照 + 27 项配图检查 + 9 项 markdown 检查(`tests/`) | ✓ Python 3.9 / 3.11 / 3.12 | ✓ |
+| 35 项库正对照 + 27 项配图检查 + 13 项 markdown 检查(`tests/`) | ✓ Python 3.9 / 3.11 / 3.12 | ✓ |
 | 第 1–2 课的**稳定断言** | ✓ | ✓ |
 | 12 个集成实验数字, 从已提交的结果文件重算 | ✓ 不需要 GPU / checkpoint / 影像 | ✓ |
 | 第 1–2 课的记录数字 | ✗ CPU 不同 | ✓ |

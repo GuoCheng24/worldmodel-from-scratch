@@ -4,9 +4,9 @@
 code and its own environments. Nothing in this directory modifies their
 repository; the whole thing is a caller.
 
-![](tdmpc2-diagnosis.png)
+![Bars of how often TD-MPC2's three-step prediction is worse than assuming nothing changed, per task at three model sizes, beside the spread of usable horizons](tdmpc2-diagnosis.png)
 
-![](tdmpc2-curves.png)
+![Eight curves of open-loop error as a percentage of the latent's real motion, crossing 100 percent at widely different steps](tdmpc2-curves.png)
 
 ## The question
 
@@ -116,7 +116,7 @@ Both are worth measuring, which is the point.
 **The horizon is not one number.** Asking the same question at every step of one
 episode, rather than once per model:
 
-<img src="tdmpc2-trust.gif" width="69%">
+<img src="tdmpc2-trust.gif" width="69%" alt="Two dm_control episodes playing, each captioned with how many steps its prediction is still worth rolling out, over a time series of that number">
 
 <sub>mt30-48M, one episode each. The number on each frame is how many steps
 ahead the model is still worth rolling out from that exact moment. It collapses

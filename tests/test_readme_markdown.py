@@ -66,3 +66,24 @@ def test_table_rows_have_a_consistent_column_count(doc):
                            % (rows[0][0], rows[-1][0], sorted(counts)))
         rows = []
     assert not bad, "%s:\n  %s" % (doc.relative_to(ROOT), "\n  ".join(bad))
+
+
+@pytest.mark.parametrize("doc", DOCS, ids=lambda p: str(p.relative_to(ROOT)))
+def test_every_figure_has_alt_text(doc):
+    """A figure with no alt text is nothing at all to a screen reader.
+
+    All 28 figure references in this repository had none - only the four
+    badges did - so anyone who could not see the images got a README with
+    twelve blanks in it, and so did anyone whose connection dropped one.
+    """
+    bad = []
+    for m in re.finditer(r"<img [^>]+>", doc.read_text()):
+        src = re.search(r'src="([^"]+)"', m.group(0))
+        alt = re.search(r'alt="([^"]*)"', m.group(0))
+        if src and not (alt and alt.group(1).strip()):
+            bad.append(src.group(1))
+    for m in re.finditer(r"!\[([^\]]*)\]\(([^)]+)\)", doc.read_text()):
+        if not m.group(1).strip():
+            bad.append(m.group(2))
+    assert not bad, ("%s has figures with no alt text:\n  %s"
+                     % (doc.relative_to(ROOT), "\n  ".join(bad)))

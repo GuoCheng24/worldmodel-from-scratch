@@ -24,7 +24,7 @@ its licence lets you do with the tables in `results/`, is at the bottom.
 And, for scale, a plain 2M-parameter U-Net that sees the whole slice and the
 phase index, trained to predict `post - pre`.
 
-![](dce-baselines.png)
+![Bars of SSIM for three predictors scored over the whole slice and inside the lesion box, and three lesion-box variants that barely differ](dce-baselines.png)
 
 ## What comes out
 
