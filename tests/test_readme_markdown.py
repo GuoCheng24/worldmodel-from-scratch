@@ -13,7 +13,18 @@ import re
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DOCS = sorted(p for p in ROOT.rglob("*.md") if ".git" not in p.parts)
+def _docs():
+    """The repository's own markdown, and nothing else.
+
+    rglob picks up .pytest_cache/README.md, which pytest writes wherever it is
+    run from - so the set, and any count derived from it, depended on the
+    reader's shell history. Skip every dot-directory.
+    """
+    return sorted(q for q in ROOT.rglob("*.md")
+                  if not any(part.startswith(".") for part in q.relative_to(ROOT).parts))
+
+
+DOCS = _docs()
 
 
 def test_there_are_documents_to_check():

@@ -18,6 +18,7 @@ displayed width to native width, which is.
 """
 import pathlib
 import re
+import sys
 
 import pytest
 
@@ -82,7 +83,9 @@ def test_readme_states_the_right_test_counts():
     lib = _count_tests(ROOT / "tests" / "test_library.py")
     figs = len(list(_figures())) + _count_tests(pathlib.Path(__file__)) - 1  # minus the parametrised one
     md_file = ROOT / "tests" / "test_readme_markdown.py"
-    docs = len([q for q in ROOT.rglob("*.md") if ".git" not in q.parts])
+    sys.path.insert(0, str(ROOT / "tests"))
+    import test_readme_markdown as md_mod
+    docs = len(md_mod.DOCS)
     md = _count_tests(md_file) - 2 + 2 * docs   # two parametrised over every doc
     text = (ROOT / "README.md").read_text()
     m = re.search(r"(\d+) library controls, (\d+) figure checks and (\d+) markdown checks", text)
