@@ -305,6 +305,19 @@ def main(argv):
     for a in argv:
         if a.startswith("--lessons="):
             lessons = {int(x) for x in a.split("=", 1)[1].split(",")}
+            # The README promises that an empty selection exits non-zero, and
+            # until this line it did not: `--lessons=9` selected no lesson at
+            # all, checked only the integration numbers, and printed "12/12
+            # backed" with status 0. A typo for `--lessons=1,2` would have
+            # reported a pass having checked almost nothing.
+            known = {c[0] for c in CLAIMS}
+            unknown = sorted(lessons - known)
+            if unknown:
+                print("no claims for lesson%s %s - this repository has %s"
+                      % ("" if len(unknown) == 1 else "s",
+                         ", ".join(map(str, unknown)),
+                         ", ".join(map(str, sorted(known)))))
+                return 2
         elif a == "--stable-only":
             stable_only = True
         else:
