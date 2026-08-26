@@ -60,3 +60,31 @@ def test_figure_is_shown_at_a_readable_scale(readme, src, pct):
         "%s shows %s scaled to %.2fx of its %d px, which put this figure's labels "
         "below the size anything else in the repository uses. Draw it narrower "
         "or show it wider." % (readme, src, scale, native))
+
+
+def _count_tests(path):
+    """Test functions in a file, counting a parametrised one once."""
+    import ast
+    n = 0
+    for node in ast.walk(ast.parse(path.read_text())):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
+            n += 1
+    return n
+
+
+def test_readme_states_the_right_test_counts():
+    """The counts in the badge section are prose, and prose drifts.
+
+    They were four commits behind by the time anyone looked - 22 figure checks
+    where there were 26. The claim count next to them is checked by
+    check_claims.py; this checks these.
+    """
+    lib = _count_tests(ROOT / "tests" / "test_library.py")
+    figs = len(list(_figures())) + _count_tests(pathlib.Path(__file__)) - 1  # minus the parametrised one
+    text = (ROOT / "README.md").read_text()
+    m = re.search(r"(\d+) library controls and (\d+) figure checks", text)
+    assert m, "the badge section no longer states the test counts"
+    assert int(m.group(1)) == lib, (
+        "README says %s library controls, tests/test_library.py has %d" % (m.group(1), lib))
+    assert int(m.group(2)) == figs, (
+        "README says %s figure checks, this file collects %d" % (m.group(2), figs))

@@ -280,6 +280,16 @@ def badge_matches_claim_count(total):
         elif int(m.group(1)) != total or int(m.group(2)) != total:
             bad.append("%s: badge says %s/%s, there are %d claims"
                        % (name, m.group(1), m.group(2), total))
+        # The badge was checked because it went stale once. The same number is
+        # also written into the prose, in the quick start and again under the
+        # badge section, and nothing was checking those - they were four
+        # commits behind by the time anyone looked.
+        text = f.read_text()
+        for mm in _re.finditer(r"(\d+)/(\d+)\s*(?:README claims|against the recorded"
+                               r"|条 README|, 对着)", text):
+            if int(mm.group(1)) != total or int(mm.group(2)) != total:
+                bad.append("%s: prose says %s/%s, there are %d claims"
+                           % (name, mm.group(1), mm.group(2), total))
     return bad
 
 

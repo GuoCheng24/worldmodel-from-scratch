@@ -231,7 +231,7 @@ claim rather than take it:
 
 ```bash
 for f in lessons/*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
-python check_claims.py /tmp/0*.txt        # 72/72 README claims backed
+python check_claims.py /tmp/0*.txt        # 77/77 README claims backed
 ```
 
 No `--config`, no download, no environment variables. If `torch` imports, it runs.
@@ -585,8 +585,9 @@ and the planner pays nothing until the ranking goes.
 
 ## What is coming
 
-Pixel observations, and a latent world model driving the arm from them — which
-is where Lessons 4 and 6 meet.
+A latent world model driving the arm from pixel observations, rolled forward in
+its own predictions — which is where Lessons 4 and 6 meet, and the one setting
+in this repository where compounding error in pixel space would actually arise.
 
 ## A note on how this is written
 
@@ -628,14 +629,14 @@ Every claim in `check_claims.py` is marked **stable** or not:
 
 | | runs in CI | checked before release |
 |---|---|---|
-| 34 library controls and 22 figure checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
+| 34 library controls and 27 figure checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
 | Lessons 1–2, **stable claims** | ✓ | ✓ |
 | 12 integration numbers, recomputed from committed results | ✓ needs neither GPU, checkpoint nor scan | ✓ |
 | Lessons 1–2, recorded numbers | ✗ different CPU | ✓ |
 | Lessons 3–6 | ✗ wants a GPU or MuJoCo | ✓ |
 
 ```bash
-python check_claims.py /tmp/0*.txt                 # 72/72 against the recorded run
+python check_claims.py /tmp/0*.txt                 # 77/77 against the recorded run
 python check_claims.py --stable-only /tmp/0*.txt   # what should hold anywhere
 ```
 
@@ -665,17 +666,24 @@ verdict.
 
 The lessons use 2-D and 3-D systems with fully observed states, chosen because
 the true dynamics are known exactly — which is what makes "how wrong is the
-model" a question with an answer. Lessons 5 and 6 carry that into MuJoCo, and
-[integrations/tdmpc2/](integrations/tdmpc2/) carries `wm.diagnose()` onto a
-published latent-space world model.
+model" a question with an answer. Lessons 5 and 6 carry that into MuJoCo,
+[integrations/tdmpc2/](integrations/tdmpc2/) carries the measurement onto a
+published latent-space world model, and [integrations/dce-mri/](integrations/dce-mri/)
+carries it onto one that predicts pixels.
 
-**What has still not been checked is a pixel-based world model, or DreamerV3.**
-The findings about growth shape and rate should be read as precise statements
-about a setting where everything is measurable, not as established facts about
-video world models. The TD-MPC2 run measures a real model but shares one of its
-limits: with no decoder, encoder drift and dynamics error are not separable, so
-what is reported there is the two together — which is also what the planner
-gets.
+**What has still not been checked is a model rolled forward in its own pixel
+predictions — DreamerV3 and its kind.** That is a different thing from the DCE
+model, which predicts pixels but is handed a real image every time and never
+consumes its own output; compounding error, which most of this repository is
+about, does not arise there. The findings about growth shape and rate should be
+read as precise statements about settings where everything is measurable, not
+as established facts about video world models.
+
+Each integration also has a limit of its own, stated where it belongs. TD-MPC2
+has no decoder, so encoder drift and dynamics error are not separable and what
+is reported is the two together — which is also what the planner gets. The DCE
+run scores inside a bounding box rather than a segmentation, on one collection,
+with one U-Net at one training budget.
 
 ## Related work, and what it is good for
 
