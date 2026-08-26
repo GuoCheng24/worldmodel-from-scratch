@@ -229,3 +229,19 @@ run these checkpoints.
 - Latent error is measured against `enc(o_{t+k})`, which is what TD-MPC2 trains
   against. A drifting encoder would show up here as dynamics error; the two are
   not separable without a decoder, which TD-MPC2 does not have.
+
+## Whose work this measures
+
+Nothing here is a new model. The checkpoints, the environments, the encoder and
+the dynamics are TD-MPC2's; this directory rolls them forward and writes down
+what comes out.
+
+> Hansen, N., Su, H., & Wang, X. (2024). *TD-MPC2: Scalable, Robust World Models
+> for Continuous Control.* ICLR 2024. <https://arxiv.org/abs/2310.16828>
+
+The tasks come from dm_control (Apache-2.0). TD-MPC2's code and released weights
+are MIT, which is what makes the layout survey in the section above possible to
+run and to publish: `results_mt30-*.npz` here are latent prediction errors
+measured from those weights, no weights are redistributed, and `returns_mt30.tsv`
+is the output of their own `evaluate.py`. Cite them, not this, for the models.
+

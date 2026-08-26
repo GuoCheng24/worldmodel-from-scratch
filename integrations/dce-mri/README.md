@@ -10,7 +10,8 @@ question: **what does the most trivial predictor available already score?**
 
 Everything below runs on Duke-Breast-Cancer-MRI, which is public on TCIA and
 needs no account. Nothing here runs anyone else's model; every number is
-produced by the scripts in this directory.
+produced by the scripts in this directory. Who to cite for that data, and what
+its licence lets you do with the tables in `results/`, is at the bottom.
 
 ## Three predictors that should be in every table
 
@@ -149,3 +150,25 @@ pixel fidelity.
 What none of them reports is the floor: what a predictor with no parameters
 already achieves, globally and where it matters. That is the only thing this
 directory adds.
+
+## The data, and what you may do with it
+
+Duke-Breast-Cancer-MRI, on TCIA, no account needed:
+
+> Saha, A., Harowicz, M. R., Grimm, L. J., Weng, J., Cain, E. H., Kim, C. E.,
+> Ghate, S. V., Walsh, R., & Mazurowski, M. A. (2021). *Dynamic contrast-enhanced
+> magnetic resonance images of breast cancer patients with tumor locations*
+> [Data set]. The Cancer Imaging Archive.
+> <https://doi.org/10.7937/TCIA.e3sv-re93>
+
+TCIA asks that the archive be cited alongside the collection: Clark, K., Vendt, B.,
+Smith, K., et al. (2013). The Cancer Imaging Archive (TCIA): maintaining and
+operating a public information repository. *Journal of Digital Imaging* 26(6),
+1045-1057. <https://doi.org/10.1007/s10278-013-9622-7>
+
+The collection is released under **CC BY-NC 4.0**. The code in this repository is
+MIT, but `results/*.csv.gz` are measurements computed from that collection, so they
+carry its terms with them: attribute it, and keep them out of commercial use. No
+images are redistributed here - each row is one SSIM, PSNR and RMSE for one patient,
+phase, region and method, and the identifiers in them (`Breast_MRI_001`) are TCIA's
+own, de-identified at the source.
