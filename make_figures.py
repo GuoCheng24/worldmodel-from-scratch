@@ -189,7 +189,13 @@ if f4.exists():
     b4.bar(x4 - w / 2, std4, w, color=SAND, label="latent std")
     b4.bar(x4 + w / 2, rank4 / LAT, w, color="#7a6f9b", label="effective rank / %d" % LAT)
     b4.axhline(1 / LAT, color="#999", lw=.9, ls=":")
-    b4.text(-.46, 1 / LAT + .045, "rank 1 = fully collapsed", fontsize=7, color="#777", ha="left")
+    # This label sits at the height of the collapse line, which is exactly where
+    # naive's rank bar is - so half of it was drawn underneath the bar and the
+    # word "collapsed" could not be read at all. Keep the position, which is the
+    # only one that reads as belonging to the dotted line, and put it in front.
+    b4.text(-.46, 1 / LAT + .045, "rank 1 = fully collapsed", fontsize=7,
+            color="#777", ha="left", zorder=5,
+            bbox=dict(facecolor="white", edgecolor="none", pad=1.2, alpha=.82))
     b4.set_xticks(x4); b4.set_xticklabels(nm4); b4.set_ylabel("detector value")
     b4.set_title("(b)  Two detectors, opposite verdicts", color=INK, loc="left")
     b4.legend(fontsize=7.3, frameon=False, loc="upper left"); b4.grid(alpha=.2, lw=.6, axis="y")
@@ -205,10 +211,10 @@ if f4.exists():
     c4 = A4[2]
     c4.axhspan(float(fl.min()), float(fl.max()), color="#999", alpha=.2, lw=0)
     c4.axhline(float(fl.mean()), color="#777", lw=1.2, ls="--")
-    c4.text(-.42, float(fl.mean()) + .022, "untrained encoder (5 seeds)", fontsize=7,
+    c4.text(-.34, float(fl.mean()) + .022, "untrained encoder (5 seeds)", fontsize=7,
             color="#555", ha="left")
     c4.axhline(ce, color=INK, lw=1.2, ls="-.")
-    c4.text(-.42, ce + .022, "raw observation (ceiling)", fontsize=7, color=INK, ha="left")
+    c4.text(-.34, ce + .022, "raw observation (ceiling)", fontsize=7, color=INK, ha="left")
     c4.bar(x4, r24, .55, color=cols)
     for xi, v in zip(x4, r24):
         c4.text(xi, v + .02, "%.3f" % v, ha="center", fontsize=7.6)

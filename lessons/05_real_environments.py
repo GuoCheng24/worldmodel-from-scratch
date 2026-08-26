@@ -115,8 +115,18 @@ kb_max = max(r["k_bound"] for r in rows)
 print("    Every one of them writes the rollout off within %d steps of the start," % kb_max)
 print("    on systems that stay usable for %d to %d. The bound is not conservative"
       % (min(r["k_real"] for r in rows), max(r["k_real"] for r in rows)))
-print("    here, it is uninformative. (The exact step moves by one between runs;")
-print("    what does not move is that it is single digits against tens.)")
+print("    here, it is uninformative.")
+# "The exact step moves by one between runs" is what this used to say, and it
+# was measured wrong. Over four runs Reacher's failure step came out 18, 21, 22
+# and 26 - eight steps apart, not one - and L_max, being a maximum over sampled
+# states, swung from 1403 to 10262 on HalfCheetah. Neither of those changes the
+# conclusion, which is why the conclusion is what gets stated as stable; but a
+# repository about not overstating what a run supports does not get to round
+# its own spread down to "one".
+print("    Read the L_max column as one draw, not a constant: it is a maximum over")
+print("    sampled states, and across four runs it moved by 7x on HalfCheetah while")
+print("    Reacher's failure step ranged 18 to 26. What does not move between runs")
+print("    is that the bound is single digits against tens.")
 
 # ═══ 2. Which shape does the error curve take? ═════════════════════════════
 print("\n[2] Lesson 2 could not tell the shape of its pendulum curve apart at all,")

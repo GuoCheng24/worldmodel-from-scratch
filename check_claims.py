@@ -92,13 +92,20 @@ CLAIMS = [
     (5, True, "divergence count is reported",                  r'[0-3] of 3 give a different form'),
     (5, True, "its instability is reported too",               r'Treat it as something to check on your own system'),
     (5, False, "horizon spread carries over",                   r'InvertedPendulum-v5\s+1\s+\d+\s+1[0-9]\.\dx'),
+    # The three numbers the README's bound table quotes. Nothing checked them,
+    # so they sat five steps and six thousand away from the run that produced
+    # them until someone redrew the figure and noticed it disagreed.
+    (5, False, "bound table: InvertedPendulum L_max 14.4",      r'InvertedPendulum-v5\s+14\.4\s+step 3'),
+    (5, False, "bound table: Reacher fails at step 25",         r'Reacher-v5\s+18\.3\s+step 3\s+step 25'),
+    (5, False, "bound table: HalfCheetah L_max 8887.8",         r'HalfCheetah-v5\s+8887\.8\s+step 2'),
+    (5, True,  "the run-to-run spread is stated, not guessed",  r"Reacher's failure step ranged 18 to 26"),
     # ---- Lesson 2 ----
     (2, True, "Lesson 2 states its own scope",                 r'Read section 3 as a statement about the chaotic regime'),
     # ---- Lesson 6 ----
     (6, False, "Reacher arm: ratio 1.0",                        r'Reacher-v5\s+1\.0\d\s+1\.0[12]\d\s+1\.0'),
     (6, False, "HalfCheetah leg: ratio is ~10x",                r'HalfCheetah-v5\s+1[0-9]\.\d\d\s+1\.\d\d\d\s+(?:[89]|1[0-9])\.\d'),
     (6, True, "arms agree, legs do not",                       r'On an arm the two agree and the bound is merely'),
-    (6, False, "random actions score -0.20",                    r'random actions\s+-0\.20\d\d'),
+    (6, False, "random actions score -0.186",                  r'random actions\s+-0\.18\d\d'),
     (6, False, "H=5 is best on Reacher",                        r'world model, H=5\s+-0\.02\d\d'),
     (6, False, "fingertip within 0.001 of target",              r'world model, H=[35]\s+-0\.0\d\d\d\s+0\.00\d\d'),
     (6, False, "longer H costs reward",                         r'world model, H=40\s+-0\.0[3-9]\d\d'),

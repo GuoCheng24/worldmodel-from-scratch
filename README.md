@@ -1,6 +1,6 @@
 # worldmodel-from-scratch
 
-[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-77%2F77%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-81%2F81%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Build a world model in an afternoon — then find out how far you can trust it.**
 
@@ -225,12 +225,17 @@ python make_visuals.py                             # redraws the animations
 MUJOCO_GL=egl python make_imagination.py           # 40 s, the animation at the top
 ```
 
+<sub>Those times are on one GPU. Lessons 1-4 need nothing beyond the three packages
+above and run on a CPU too, at a cost that is real and not uniform: measured on
+eight CPU threads, Lessons 1 and 4 take 3x longer, Lesson 3 6x and Lesson 2 10x,
+so the four together are about nineteen minutes rather than three.</sub>
+
 Every number quoted below is produced by those two scripts. To check that
 claim rather than take it:
 
 ```bash
 for f in lessons/*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
-python check_claims.py /tmp/0*.txt        # 77/77 README claims backed
+python check_claims.py /tmp/0*.txt        # 81/81 README claims backed
 ```
 
 No `--config`, no download, no environment variables. If `torch` imports, it runs.
@@ -477,13 +482,18 @@ finished:
 
 | environment | `L_max` | bound says worthless at | actually is at |
 |---|---|---|---|
-| InvertedPendulum | 9.2 | **step 3** | still fine at 60 |
-| Reacher | 18.3 | **step 3** | step 21 |
-| HalfCheetah | 15099 | **step 2** | still fine at 40 |
+| InvertedPendulum | 14.4 | **step 3** | still fine at 60 |
+| Reacher | 18.3 | **step 3** | step 25 |
+| HalfCheetah | 8887.8 | **step 2** | still fine at 40 |
 
-<sub>The exact step moves by one between runs. What does not move is that the
-bound speaks in single digits about systems that stay usable for tens of steps,
-so the lesson prints the measured range rather than these numbers.</sub>
+<sub>One run, and read <code>L_max</code> as one draw rather than a constant: it is a
+maximum over sampled states. Across four runs it moved from 1403 to 10262 on
+HalfCheetah and from 9.2 to 23.2 on InvertedPendulum, while Reacher's failure step
+came out 18, 21, 22 and 26. This table used to say the step "moves by one between
+runs" — that was measured wrong, and nothing checked it, which is why the numbers
+here had drifted five steps and 6000 from the run that produced them. Both are
+checked now. What does not move is the middle column against the right one: single
+digits against tens.</sub>
 
 **What survives, and what needed a qualification.** The horizon spread carried
 over everywhere (1.6x to 19x). The median-versus-mean divergence appeared in 0
@@ -535,11 +545,12 @@ control and a reader who has asked for reduced motion sees only the first.</sub>
 
 | planner | reward/step | final fingertip-to-target |
 |---|---|---|
-| random actions | −0.2045 | — |
-| world model, H=3 | −0.0271 | 0.0005 |
-| **world model, H=5** | **−0.0207** | 0.0009 |
-| world model, H=20 | −0.0341 | 0.0076 |
-| world model, H=40 | −0.0451 | 0.0243 |
+| random actions | −0.1861 | — |
+| world model, H=3 | −0.0397 | 0.0004 |
+| **world model, H=5** | **−0.0239** | 0.0007 |
+| world model, H=10 | −0.0272 | 0.0028 |
+| world model, H=20 | −0.0392 | 0.0100 |
+| world model, H=40 | −0.0533 | 0.0239 |
 
 **The horizon the task wants is 5 here, where the pendulum swing-up needed 25.**
 Both are the task's answer: a swing-up must pump energy over many steps before
@@ -552,11 +563,11 @@ And the quantity Lesson 3 identified, on the real arm:
 
 | H | state error | rank correlation | regret |
 |---|---|---|---|
-| 5 | 0.344 | 0.998 | 0.0000 |
-| 20 | 4.51 | 0.958 | 0.0000 |
-| 40 | 12.13 | 0.647 | 1.0522 |
+| 5 | 0.2483 | 0.998 | 0.0000 |
+| 20 | 2.0501 | 0.990 | 0.0000 |
+| 40 | 4.4333 | 0.905 | 0.1981 |
 
-The state drifts by more than 30x between H=5 and H=40 while the ranking holds,
+The state drifts by nearly 18x between H=5 and H=40 while the ranking holds,
 and the planner pays nothing until the ranking goes.
 
 <p align="center">
@@ -639,7 +650,7 @@ Every claim in `check_claims.py` is marked **stable** or not:
 | Lessons 3–6 | ✗ wants a GPU or MuJoCo | ✓ |
 
 ```bash
-python check_claims.py /tmp/0*.txt                 # 77/77 against the recorded run
+python check_claims.py /tmp/0*.txt                 # 81/81 against the recorded run
 python check_claims.py --stable-only /tmp/0*.txt   # what should hold anywhere
 ```
 

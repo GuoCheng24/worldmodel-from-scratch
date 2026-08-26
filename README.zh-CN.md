@@ -1,6 +1,6 @@
 # worldmodel-from-scratch
 
-[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-77%2F77%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-81%2F81%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **一个下午写出一个世界模型 —— 然后搞清楚它能信到第几步。**
 
@@ -194,11 +194,15 @@ python make_visuals.py                             # 重画上面的动图
 MUJOCO_GL=egl python make_imagination.py           # 40 秒, 生成开头那张动图
 ```
 
+<sub>这些秒数是在**一块 GPU** 上测的。第 1–4 课除了上面那三个包什么都不需要,纯 CPU 也能跑,
+但代价是真实的、而且并不均匀:8 线程 CPU 实测,第 1、4 课慢 3 倍,第 3 课 6 倍,第 2 课 10 倍,
+四课合计约 **19 分钟**而不是 3 分钟。</sub>
+
 下面引用的每一个数字都由这两个脚本产生。**不用信,可以直接查:**
 
 ```bash
 for f in lessons/*.py; do python "$f" > "/tmp/$(basename $f .py).txt"; done
-python check_claims.py /tmp/0*.txt        # 77/77 条 README 断言有输出支撑
+python check_claims.py /tmp/0*.txt        # 81/81 条 README 断言有输出支撑
 ```
 
 没有 `--config`,没有下载,没有环境变量。`torch` 能 import 就能跑。
@@ -401,12 +405,15 @@ export MUJOCO_GL=egl        # 必须在 import mujoco 或 gymnasium 之前
 
 | 环境 | `L_max` | 界宣布报废于 | 实际何时才超标 |
 |---|---|---|---|
-| InvertedPendulum | 9.2 | **第 3 步** | 到第 60 步都没事 |
-| Reacher | 18.3 | **第 3 步** | 第 21 步 |
-| HalfCheetah | 15099 | **第 2 步** | 到第 40 步都没事 |
+| InvertedPendulum | 14.4 | **第 3 步** | 到第 60 步都没事 |
+| Reacher | 18.3 | **第 3 步** | 第 25 步 |
+| HalfCheetah | 8887.8 | **第 2 步** | 到第 40 步都没事 |
 
-<sub>具体是第几步在不同运行间会差 1。不变的是:界用个位数谈论一个能撑几十步的系统,
-所以课程打印的是实测区间而不是这几个数。</sub>
+<sub>这是**一次**运行,而且 <code>L_max</code> 要当成一次抽样而非常数看——它是对采样状态取的最大值。
+四次运行里它在 HalfCheetah 上从 1403 变到 10262、在 InvertedPendulum 上从 9.2 变到 23.2,
+Reacher 的失效步数则是 18、21、22、26。这张表原先写的是"具体第几步在不同运行间会差 1"——
+那是**测错了**,而且没有任何检查管它,所以表里的数字已经和产出它的那次运行差了五步和六千。
+现在两处都纳入检查了。真正不变的是中间一列对右边一列:个位数 vs 几十步。</sub>
 
 **什么活下来了,什么需要加限定。** 可用步数的跨度到处都在(1.6× 到 19×)。
 中位/均值分歧在不同运行里是 **0 或 1 of 3**——这个不稳定本身就是结论:
@@ -450,11 +457,12 @@ export MUJOCO_GL=egl        # 必须在 import mujoco 或 gymnasium 之前
 
 | 规划器 | 每步回报 | 终态指尖-目标距离 |
 |---|---|---|
-| 随机动作 | −0.2045 | — |
-| 世界模型 H=3 | −0.0271 | 0.0005 |
-| **世界模型 H=5** | **−0.0207** | 0.0009 |
-| 世界模型 H=20 | −0.0341 | 0.0076 |
-| 世界模型 H=40 | −0.0451 | 0.0243 |
+| 随机动作 | −0.1861 | — |
+| 世界模型 H=3 | −0.0397 | 0.0004 |
+| **世界模型 H=5** | **−0.0239** | 0.0007 |
+| 世界模型 H=10 | −0.0272 | 0.0028 |
+| 世界模型 H=20 | −0.0392 | 0.0100 |
+| 世界模型 H=40 | −0.0533 | 0.0239 |
 
 **这里任务要的步长是 5,而摆起任务要 25。** 两个都是任务给的答案:
 摆起必须先蓄能很多步才会有好事发生,够物体不需要——贪心下降本来就是对的,
@@ -465,11 +473,11 @@ export MUJOCO_GL=egl        # 必须在 import mujoco 或 gymnasium 之前
 
 | H | 状态误差 | 秩相关 | 后悔值 |
 |---|---|---|---|
-| 5 | 0.344 | 0.998 | 0.0000 |
-| 20 | 4.51 | 0.958 | 0.0000 |
-| 40 | 12.13 | 0.647 | 1.0522 |
+| 5 | 0.2483 | 0.998 | 0.0000 |
+| 20 | 2.0501 | 0.990 | 0.0000 |
+| 40 | 4.4333 | 0.905 | 0.1981 |
 
-H 从 5 到 40 状态误差涨了 30 多倍,而排序还在,**规划器直到排序垮掉才开始付代价**。
+H 从 5 到 40 状态误差涨了近 18 倍,而排序还在,**规划器直到排序垮掉才开始付代价**。
 
 <p align="center">
   <img src="figures/real-robots.png" width="100%" alt="三个面板:教科书上界判 rollout 无用的步数 vs 实际失效的步数、各机器人的单步放大 vs 持续放大、回报随规划步长的变化">
@@ -532,7 +540,7 @@ H 从 5 到 40 状态误差涨了 30 多倍,而排序还在,**规划器直到排
 | 第 3–6 课 | ✗ 需 GPU 或 MuJoCo | ✓ |
 
 ```bash
-python check_claims.py /tmp/0*.txt                 # 77/77, 对着产生本文档的那次运行
+python check_claims.py /tmp/0*.txt                 # 81/81, 对着产生本文档的那次运行
 python check_claims.py --stable-only /tmp/0*.txt   # 应当在任何地方都成立的那部分
 ```
 
