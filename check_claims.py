@@ -116,47 +116,59 @@ def _tdmpc2_facts():
     """Recompute the TD-MPC2 numbers the README quotes, from the committed .npz.
 
     The integration runs need a GPU, TD-MPC2's repository and its released
-    checkpoints, so they cannot run here. What they leave behind - the per-task
-    error curves - is small enough to live in the repository, which is why it
-    does. Every TD-MPC2 figure in the README is recomputed from those arrays,
-    so a sentence cannot drift away from the run that produced it.
+    checkpoints, so they cannot run here. What they leave behind - the
+    per-rollout error matrix for every task - is small enough to live in the
+    repository, which is why it does. The arithmetic is imported from
+    integrations/tdmpc2/summarise.py rather than repeated, so this file and
+    that one cannot drift into disagreeing about what the runs said.
     """
-    import numpy as np
     d = pathlib.Path(__file__).parent / "integrations" / "tdmpc2"
-    facts, ratios = {}, {}
-    for size in ("1M", "48M", "317M"):
-        f = d / ("results_mt30-%s.npz" % size)
-        if not f.exists():
-            return None
-        r = np.load(f)
-        tasks = [t for t in r.files if not t.startswith("horizon__")]
-        v = {t: 100 * r[t][0][PLAN_H - 1] / max(r[t][1][PLAN_H - 1], 1e-12) for t in tasks}
-        ratios[size] = v
-        a = np.array([v[t] for t in tasks])
-        facts[size] = dict(median=float(np.median(a)), lo=float(a.min()), hi=float(a.max()),
-                           spread=float(a.max() / a.min()), over=int((a > 100).sum()),
-                           n=len(tasks))
-    facts["regressions"] = sum(1 for t in ratios["48M"] if ratios["317M"][t] > ratios["48M"][t])
-    return facts
+    if not d.is_dir():
+        return None
+    sys.path.insert(0, str(d))
+    try:
+        import summarise
+    except ImportError:
+        return None
+    runs = summarise.load()
+    if len(runs) < 3:
+        return None
+    return summarise.facts(runs)
 
 
-def integration_claims(facts):
+def integration_claims(f):
     """(name, {readme: regex}) for every TD-MPC2 number the READMEs quote."""
     b = lambda x: r"\*\*%s\*\*" % re.escape(x)
-    both = lambda pat: {"README.md": pat, "README.zh-CN.md": pat}
-    f1, f48, f317 = facts["1M"], facts["48M"], facts["317M"]
+    pct = lambda x: b("%.0f%%" % x)
+    tasks = f["317M"]["tasks"]
+    worst1M = max(tasks, key=lambda t: f["1M"]["loses"][t])
+    cart = "cartpole-swingup"
+    trio_en = ", ".join("%.0f%%" % f[s]["loses"][cart] for s in ("1M", "48M", "317M"))
+    trio_zh = "、".join("%.0f%%" % f[s]["loses"][cart] for s in ("1M", "48M", "317M"))
+    tiny = sum(1 for t in tasks if f["48M"]["loses"][t] <= 1)
+    words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+             6: "six", 7: "seven", 8: "eight"}
     return [
-        ("mt30-1M median error at k=3",   both(b("%.0f%%" % f1["median"]))),
-        ("mt30-48M median error at k=3",  both(b("%.0f%%" % f48["median"]))),
-        ("mt30-317M median error at k=3", both(b("%.0f%%" % f317["median"]))),
-        ("mt30-1M tasks over 100%",       both(b(str(f1["over"])) + r"[^\n]{0,12}(?:of 8|/ ?8| 个)")),
-        ("spread still %.1fx at 317M" % f317["spread"],
-         {"README.md": b("%.1fx" % f317["spread"]),
-          "README.zh-CN.md": b("%.1f 倍" % f317["spread"])}),
-        ("tasks worse at 317M than 48M",
-         {"README.md": b("%d of the 8 tasks get worse" % facts["regressions"]),
-          "README.zh-CN.md": b("8 个任务里有 %d 个反而变差" % facts["regressions"])}),
-        ("8 tasks were measured",         both(r"8 dm_control (?:tasks|任务)|8 个 dm_control")),
+        ("mt30-1M median share of starts lost",
+         {"README.md": b("mt30-1M") + r": on a median task, " + pct(f["1M"]["median"]),
+          "README.zh-CN.md": b("mt30-1M") + r":中位任务上有 " + pct(f["1M"]["median"])}),
+        ("mt30-48M median share of starts lost",
+         {"README.md": b("mt30-48M") + r": " + pct(f["48M"]["median"]),
+          "README.zh-CN.md": b("mt30-48M") + r":" + pct(f["48M"]["median"])}),
+        ("mt30-317M median share of starts lost",
+         {"README.md": b("mt30-317M") + r": " + pct(f["317M"]["median"]),
+          "README.zh-CN.md": b("mt30-317M") + r":" + pct(f["317M"]["median"])}),
+        ("worst task on mt30-1M",
+         {"README.md": pct(f["1M"]["loses"][worst1M]) + r"[^\n]{0,12}\n?[^\n]{0,20}"
+                       + re.escape(worst1M),
+          "README.zh-CN.md": re.escape(worst1M) + r"[^\n]{0,12}" + pct(f["1M"]["loses"][worst1M])}),
+        ("cartpole-swingup rises at every size",
+         {"README.md": re.escape(trio_en), "README.zh-CN.md": re.escape(trio_zh)}),
+        ("tasks at or below 1% on mt30-48M",
+         {"README.md": r"%s of the eight tasks to 1%% or below" % words[tiny],
+          "README.zh-CN.md": r"8 个任务里有 %d 个降到 1%% 及以下" % tiny}),
+        ("8 tasks were measured",
+         {"README.md": r"8 dm_control tasks", "README.zh-CN.md": r"8 个 dm_control"}),
     ]
 
 

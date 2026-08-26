@@ -2,15 +2,21 @@
 
 [![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-72%2F72%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Build a world model in an afternoon — then find out where it breaks.**
+**Build a world model in an afternoon — then find out how far you can trust it.**
 
 [中文版](README.zh-CN.md) · MIT · no simulator, no MuJoCo, no OpenGL
 
-A world model predicts where you end up given where you are and what you do.
-It is the engine underneath model-based RL, robot policy evaluation, and the
+A world model predicts where you end up given where you are and what you do. It
+is the engine underneath model-based RL, robot policy evaluation, and the
 current generation of world-action models. There are good tutorials on how to
-build one. This one is about the half nobody teaches: **how far you can trust
-the thing once it is built, and what actually governs that.**
+build one. This is about the half nobody teaches: **how far the thing stays
+right once it is built, what actually governs that, and how to measure it on a
+model you did not train.**
+
+Two things come out of that. **Six lessons** that measure the failure modes on
+systems whose true dynamics are known exactly, so "how wrong is the model" has
+an answer — and **`wm.diagnose()`**, one call that makes the same measurement on
+anything, including somebody else's published model.
 
 <p align="center">
   <img src="figures/arm-still.png" width="94%">
@@ -112,22 +118,30 @@ using TD-MPC2's own code and environments, loaded through their own
 </p>
 
 TD-MPC2 plans by rolling its learned dynamics forward **3 steps** and scoring
-the result — on every task. Measured across 8 dm_control tasks (640 rollouts
-each), at three model sizes, the error at exactly that horizon as a fraction of
-how far the latent actually moves:
+the result — on every task. Whether that plan is worth anything turns on a
+comparison against the most trivial baseline there is: at that horizon, how
+often is the prediction beaten by **assuming the state did not change**?
+Measured across 8 dm_control tasks, 640 rollouts each, at three model sizes:
 
-- **mt30-1M**: median **77%**, and on **3** of 8 tasks above **100%** — at the
-  horizon it plans over, the rollout carries less information than assuming
-  nothing changes at all.
-- **mt30-48M**: median **22%**. Every one of those failures is gone.
-- **mt30-317M**: median **18%**. Another 6.6x the parameters buys almost
-  nothing, and **5 of the 8 tasks get worse** by 4 to 11 points against a
-  rerun spread measured at 1.8.
+- **mt30-1M**: on a median task, **48%** of starts. Half of them — and **79%**
+  on `hopper-stand`. The rollout is carrying the planner no information.
+- **mt30-48M**: **4%**. Forty-eight times the parameters fixes it, and takes
+  three of the eight tasks to 1% or below.
+- **mt30-317M**: **4%**. Another 6.6x buys nothing at all.
 
-**The spread across tasks never closes**: worst task over best runs 11.7x, 9.2x,
-**7.1x** as the model grows. Scale fixes the catastrophic cases and leaves the
-variance, and nothing in the pipeline reports either — the planner rolls the
-dynamics forward the same 3 steps on every task at every size.
+And on `cartpole-swingup` the share **rises at every size — 42%, 44%, 57%**. At
+317M, on the majority of starts, rolling the learned dynamics forward three
+steps is worse than not rolling them forward, on the task the planner is being
+asked to solve. Scale fixed the catastrophic cases and then stopped.
+
+<p align="center">
+  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="82%">
+</p>
+
+<sub>Nor is it one number per model. Asked at every step of a single episode —
+how many steps ahead is the model still worth rolling out, from this exact
+moment — the answer collapses and recovers dozens of times, and two tasks
+sharing every weight live in different regimes.</sub>
 
 TD-MPC2 does log `consistency_loss` — an undivided, `rho`-discounted MSE over
 those same 3 steps, on replay batches, to wandb but not to the console or the

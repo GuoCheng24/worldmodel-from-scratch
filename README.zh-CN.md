@@ -2,14 +2,18 @@
 
 [![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-72%2F72%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**一个下午写出一个世界模型 —— 然后搞清楚它在哪里坏掉。**
+**一个下午写出一个世界模型 —— 然后搞清楚它能信到第几步。**
 
 [English](README.md) · MIT · 不装仿真器、不装 MuJoCo、不装 OpenGL
 
 世界模型回答一件事:给定你在哪、你做什么,你会到哪里去。它是 model-based RL、
 机器人策略评测、以及这一代 world-action model 底下的引擎。教你**怎么造**一个的
-教程已经有不少,这个仓讲的是没人教的另一半:**造出来之后,它能信到什么程度,
-以及这件事到底由什么决定。**
+教程已经有不少,这个仓讲的是没人教的另一半:**造出来之后它还能对多久、
+这件事由什么决定,以及——怎么在一个不是你训的模型上把它量出来。**
+
+由此出来两样东西:**六课**,在真实动力学精确已知的系统上测出各种失效模式
+(这样"模型错了多少"才是个有确切答案的问题);以及 **`wm.diagnose()`**,
+一次调用就能把同样的测量做在任何模型上,**包括别人已经发表的模型**。
 
 <p align="center">
   <img src="figures/arm-still.png" width="94%">
@@ -100,18 +104,26 @@ world model rollout diagnosis   600 trajectories x 900 steps, state dim 3
 </p>
 
 TD-MPC2 规划时把学到的动力学**前推 3 步**再打分——在每一个任务上都是 3 步。
-在 8 个 dm_control 任务上测量(每个任务 640 条 rollout)、跨三个模型规模,
-恰好在那个视界处的误差占潜变量**实际移动距离**的比例:
+这个规划值不值钱,取决于它和一个**最平凡的基线**比:在那个视界处,
+有多大比例的起点上,它的预测**还不如"假设状态根本没变"**?
+在 8 个 dm_control 任务上测量(每个任务 640 条 rollout)、跨三个模型规模:
 
-- **mt30-1M**:中位数 **77%**,且 8 个任务里有 **3** 个超过 **100%** ——在它据以规划的
-  那个视界上,这条 rollout 携带的信息还不如"假设什么都没变"。
-- **mt30-48M**:中位数 **22%**。上面那些失效全部消失。
-- **mt30-317M**:中位数 **18%**。参数再涨 6.6 倍几乎买不到东西,
-  而且 **8 个任务里有 5 个反而变差**,幅度 4 到 11 个百分点,而实测重跑抖动只有 1.8。
+- **mt30-1M**:中位任务上有 **48%** 的起点——**一半**;`hopper-stand` 上是 **79%**。
+  这条 rollout 没给规划器带来任何信息。
+- **mt30-48M**:**4%**。参数涨 48 倍把它修好了,8 个任务里有 3 个降到 1% 及以下。
+- **mt30-317M**:**4%**。再涨 6.6 倍,**什么也没买到**。
 
-**跨任务的差异始终没有收敛**:最差任务比最好任务,三档分别是 11.7 倍、9.2 倍、**7.1 倍**。
-规模能修掉灾难性的那几个,却修不掉方差——而这两件事流水线里都没有任何数字会报告:
-无论哪个规模、哪个任务,规划器都把动力学前推同样的 3 步。
+而 `cartpole-swingup` 上这个比例**随规模逐级上升——42%、44%、57%**。
+在 317M 上,**超过一半的起点**,把学到的动力学前推三步还不如根本不推——
+而这正是规划器被要求解决的那个任务。规模修掉了灾难性的那几个,然后就停了。
+
+<p align="center">
+  <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="82%">
+</p>
+
+<sub>它也不是"每个模型一个数"。把同一个问题问在一集里的**每一步**——
+从这一刻起,模型往前几步还值得推——答案在一集之内反复崩塌又恢复;
+而共享全部权重的两个任务,处在完全不同的区间。</sub>
 
 TD-MPC2 确实记录了 `consistency_loss`——那是同样 3 步内、带 `rho` 折扣、**未做任何
 归一化**的 MSE,在回放数据上算,上报到 wandb,但不进控制台、也不进保存的 CSV。

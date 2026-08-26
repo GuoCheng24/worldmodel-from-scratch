@@ -103,45 +103,51 @@ def main(cfg):
         # Pool start points across episodes; each is an independent rollout.
         P, T, N = np.concatenate(Ps), np.concatenate(Ts), np.concatenate(Ns)
         d = wm.diagnose(P, T)
-        e_m = np.linalg.norm(P - T, axis=-1).mean(0)
-        e_n = np.linalg.norm(N - T, axis=-1).mean(0)
+        # Per-rollout error, kept in full. Lesson 2 of this repository is that
+        # the mean over trajectories tracks a runaway minority rather than the
+        # typical rollout, so the summary must not be baked in here - storing
+        # the matrix lets any summary be recomputed later, and lets the figures
+        # show the spread instead of one line through it.
+        err = np.linalg.norm(P - T, axis=-1).astype(np.float32)      # (n, k)
+        still = np.linalg.norm(N - T, axis=-1).astype(np.float32)    # (n, k)
+        e_m, e_n = np.median(err, axis=0), np.median(still, axis=0)
         h = d["horizon"]
-        # A tolerance-free reading at the planner's own horizon: e_n[k] is the
-        # distance the latent actually travelled in k steps, so the ratio says
-        # what fraction of the real motion the prediction error already eats.
+        # Two readings at the planner's own horizon, neither of which needs a
+        # tolerance to be chosen. `still` is the distance the latent actually
+        # travelled, so the ratio says what share of the real motion the error
+        # already eats - and `loses` counts the starts where it eats all of it,
+        # which is the question a planner is really asking.
         H = min(cfg.horizon, K) - 1
-        rows.append((task, h["p50"], h["p5"], h["p95"], e_m[0], e_n[0],
+        loses = 100.0 * float((err[:, H] >= still[:, H]).mean())
+        rows.append((task, h["p50"], h["p5"], h["p95"], loses,
                      int((e_m < e_n).sum()), e_m[H] / max(e_n[H], 1e-12)))
-        store[task] = np.stack([e_m, e_n])
+        store["err__" + task] = err
+        store["still__" + task] = still
         store["horizon__" + task] = np.array([h["p5"], h["p50"], h["p95"]])
         # A 317M model takes tens of minutes per task, so this line has to
         # arrive when the task finishes rather than when the buffer fills.
         print("  %-22s %d episodes, %d rollouts" % (task, len(Ps), len(P)), flush=True)
 
-    print("\n  %-20s %-20s %-20s %s"
-          % ("task", "usable horizon", "beats 'no change'", "error at k=%d, as %% of" % cfg.horizon))
-    print("  %-20s %-20s %-20s %s"
-          % ("", "median [5th, 95th]", "at k of %d steps" % K, "the latent's real motion"))
-    print("  " + "-" * 84)
-    for t, p50, p5, p95, m, nc, w, ratio in rows:
-        flag = "   <- planner's horizon is already past it" if p50 < cfg.horizon else ""
-        print("  %-20s %-20s %-20s %.0f%%%s"
-              % (t, "%.0f  [%.0f, %.0f]" % (p50, p5, p95), "%d/%d" % (w, K), 100 * ratio, flag))
-
-    worse = [r for r in rows if r[4] >= r[5]]
-    hs = [r[1] for r in rows]
-    short = [r[0] for r in rows if r[1] < cfg.horizon]
-    print("\n  worse than predicting no change at one step on %d of %d tasks."
-          % (len(worse), len(rows)))
-    print("  usable horizon across tasks: %.0f to %.0f steps (%.0fx), for one model."
-          % (min(hs), max(hs), max(hs) / max(min(hs), 1)))
-    print("  TD-MPC2 rolls this model forward %d steps to score every candidate" % cfg.horizon)
-    print("  action sequence, on every task. On %d of %d the predictions are already"
-          % (len(short), len(rows)))
-    print("  past tolerance before that lookahead ends%s."
-          % (": " + ", ".join(short) if short else ""))
+    print("\n  %-20s %-22s %-22s %s"
+          % ("task", "at k=%d, share of starts" % cfg.horizon,
+             "error at k=%d, %% of" % cfg.horizon, "usable horizon"))
+    print("  %-20s %-22s %-22s %s"
+          % ("", "worse than standing still", "the latent's real motion", "median [5th, 95th]"))
+    print("  " + "-" * 88)
+    for t, p50, p5, p95, loses, w, ratio in rows:
+        print("  %-20s %-22s %-22s %s"
+              % (t, "%.0f%%" % loses, "%.0f%%" % (100 * ratio),
+                 "%.0f  [%.0f, %.0f]" % (p50, p5, p95)))
+    L = sorted(r[4] for r in rows)
+    print("\n  median across tasks: %.0f%% of starts are better served by assuming"
+          % (0.5 * (L[len(L) // 2] + L[(len(L) - 1) // 2])))
+    print("  nothing changed, at the horizon TD-MPC2 plans over. Range %.0f-%.0f%%."
+          % (L[0], L[-1]))
+    print("  It rolls this model forward %d steps to score every candidate action"
+          % cfg.horizon)
+    print("  sequence, on every task, at every model size.")
     out = os.path.join(HERE, "results_%s.npz" % ckpt.replace(".pt", ""))
-    np.savez(out, **{t: v for t, v in store.items()})
+    np.savez_compressed(out, **store)
     print("  wrote %s" % out)
 
 

@@ -27,64 +27,71 @@ horizon, and not broken out per task at evaluation.
 TD-MPC2 has no decoder, so open-loop error lives in latent space. From
 `enc(o_t)`, roll `model.next` forward under the actions the agent actually
 took, and compare against `enc(o_{t+k})` — the same target the consistency loss
-uses. Two readings come out:
+uses. The comparison that decides whether a plan is worth anything is against
+the most trivial baseline there is: **assume the state did not change.** If the
+prediction is further from the truth than `enc(o_t)` itself, the rollout has
+carried the planner no information at all.
 
-- **usable horizon** — how many steps before the error crosses a tolerance
-  (`wm.diagnose`'s default is the 10th percentile of the final-step error, so
-  that most trajectories cross it inside the window), reported as a
-  distribution over start points rather than as a single number.
-- **error as a percentage of the latent's real motion** — the model's error at
-  step k divided by `||enc(o_{t+k}) - enc(o_t)||`, the distance the latent
-  actually travelled. This needs no tolerance to be chosen. At 100% the
-  prediction is worth exactly as much as predicting no change at all.
+Two readings come out of that, and neither needs a tolerance to be chosen:
+
+- **the share of starts where the model loses to standing still**, at the
+  planner's own horizon. Bounded, no division, and it is the question a planner
+  is really asking.
+- **how many steps it keeps winning**, per start — which turns out not to be
+  one number per model, or even per task.
 
 Measured over 8 dm_control tasks from the mt30 set, 10 episodes each, 64 start
-points per episode (640 rollouts per task), 20 open-loop steps.
+points per episode (640 rollouts per task), 20 open-loop steps. Every summary
+below is a median or a percentile: Lesson 2 of this repository is that the mean
+over rollouts describes a runaway minority rather than the typical one, and
+that applies here as much as it does there.
 
 ## What it found
 
-**At the horizon TD-MPC2 actually plans over, prediction quality varies about
-tenfold across tasks — and scaling the model does not close that gap.**
+**At the horizon TD-MPC2 rolls its model forward to score actions, the share of
+starts where the prediction is beaten by assuming nothing changed:**
 
 | task | mt30-1M | mt30-48M | mt30-317M |
 |---|---|---|---|
-| cartpole-swingup | 90% | 68% | 79% |
-| walker-walk | 115% | 12% | 20% |
-| cheetah-run | 63% | 52% | 17% |
-| finger-spin | 58% | 7% | 11% |
-| reacher-easy | 41% | 30% | 23% |
-| cup-catch | 161% | 24% | 30% |
-| pendulum-swingup | 14% | 10% | 16% |
-| hopper-stand | 116% | 19% | 13% |
-| **median** | **77%** | **22%** | **18%** |
-| range | 14-161% | 7-68% | 11-79% |
-| worst / best | 11.7x | 9.2x | 7.1x |
+| cartpole-swingup | 42% | 44% | **57%** |
+| walker-walk | 55% | 0% | 0% |
+| cheetah-run | 22% | 22% | 0% |
+| finger-spin | 68% | 0% | 0% |
+| reacher-easy | 22% | 5% | 4% |
+| cup-catch | 60% | 1% | 7% |
+| pendulum-swingup | 8% | 4% | 18% |
+| hopper-stand | 79% | 9% | 4% |
+| **median** | **48%** | **4%** | **4%** |
+| range | 8-79% | 0-44% | 0-57% |
 
-Read down the columns and the story is in two halves.
+**1M to 48M is a real fix.** On the smallest model, half the starts on a median
+task are better served by assuming nothing changed — 79% of them on
+`hopper-stand`. Forty-eight times the parameters takes the median to 4%, and
+four of the eight tasks to 1% or below.
 
-**1M to 48M is a real fix.** The median falls from 77% to 22%, and the three
-tasks **above 100%** — where the prediction error at the planner's horizon
-exceeds the distance the latent actually moves, so the rollout carries less
-information than assuming nothing changes — all disappear. So do the four tasks
-where the model was beaten by predicting no change at the very first step.
+**48M to 317M is nothing at all.** Another 6.6x the parameters leaves the median
+exactly where it was, at 4%.
 
-**48M to 317M is not.** Another 6.6x the parameters moves the median from 22%
-to 18%, and **five of the eight tasks get worse**: cartpole-swingup +11,
-walker-walk +8, cup-catch +6, pendulum-swingup +5, finger-spin +4 percentage
-points, against a rerun spread measured at 1.8 points at most (see Caveats).
-Only cheetah-run gains much (-35). On `cartpole-swingup` the 317M model is
-beaten by predicting no change at the first step, which the 48M model was not:
-its one-step error is 150% of the distance the latent travels.
+**And `cartpole-swingup` gets worse at every size: 42%, 44%, 57%.** At 317M, on
+the majority of starts, rolling the learned dynamics forward three steps is
+worse than not rolling them forward — on the task the planner is being asked to
+solve. `pendulum-swingup` regresses too, 8% to 4% to 18%. Whatever is wrong
+there is not a capacity problem, and no number the codebase reports would show
+it.
 
-**The spread never closes.** Worst-task over best-task runs 11.7x, 9.2x, 7.1x
-across the three sizes. Whatever makes `cartpole-swingup` hard for this model
-is not a capacity problem, and nothing in the pipeline reports it: the planner
-rolls the dynamics forward the same 3 steps on every task at every model size.
+**The horizon is not one number.** Asking the same question at every step of one
+episode, rather than once per model:
 
-The usable horizon tells the same story within each model — for mt30-48M the
-median runs from 2 steps (`cup-catch`) to 14 (`cartpole-swingup`) — but its
-tolerance is derived from that model's own error distribution, so it compares
-tasks within a model and not models against each other.
+![](tdmpc2-trust.gif)
+
+<sub>mt30-48M, one episode each. The number on each frame is how many steps
+ahead the model is still worth rolling out from that exact moment. It collapses
+and recovers dozens of times within a single episode, and the two tasks live in
+different regimes while sharing every weight.</sub>
+
+Across starts, for mt30-317M, the median runs from 1 step (`cartpole-swingup`)
+to 20 (`cheetah-run`), and within a single task the 5th and 95th percentiles are
+19 steps apart. TD-MPC2 rolls the model forward the same 3 steps regardless.
 
 ## Reproducing it
 
@@ -178,11 +185,10 @@ run these checkpoints.
 - **Reruns are not bit-identical.** MPPI amplifies GPU floating-point
   nondeterminism into different action sequences, so two runs of this script
   with the same seed visit different states. Measured on mt30-48M, the per-task
-  percentages moved by at most 1.8 points and 0.6 on average, and the median
-  across tasks did not move at all (22% both times; the range read 8-70% and
-  7-68%). Read the individual percentages to the nearest few points, the
-  48M-to-317M regressions (4 to 11 points) as outside that, and the spread
-  across tasks as the finding.
+  shares moved by at most 2.8 points and 0.4 on average, and the median across
+  tasks did not move. `cartpole-swingup` read 44% in both runs, so its
+  regression with scale is not a run-to-run artefact. Read the individual
+  percentages to the nearest few points.
 - Trajectories come from the agent's own planner, so this is prediction quality
   on the states the agent actually visits — the relevant distribution for
   planning, and not the same as replay-buffer error.
