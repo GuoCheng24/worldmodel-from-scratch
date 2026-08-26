@@ -31,6 +31,31 @@ ORDER = ["cartpole-swingup", "walker-walk", "cheetah-run", "finger-spin",
          "reacher-easy", "cup-catch", "pendulum-swingup", "hopper-stand"]
 
 
+def returns():
+    """TD-MPC2's own evaluate.py on the same checkpoints, 2 episodes per task.
+
+    Without this the prediction numbers float free of anything anyone cares
+    about, and the obvious objection - that a model predicts badly on a task it
+    simply cannot do - cannot be answered either way.
+    """
+    f = os.path.join(HERE, "returns_mt30.tsv")
+    if not os.path.exists(f):
+        return {}
+    lines = open(f).read().strip().split("\n")
+    head = lines[0].split("\t")[1:]
+    out = {s: {} for s in head}
+    for ln in lines[1:]:
+        cell = ln.split("\t")
+        for s, v in zip(head, cell[1:]):
+            out[s][cell[0]] = float(v)
+    return out
+
+
+def _spearman(a, b):
+    ra = np.argsort(np.argsort(a)); rb = np.argsort(np.argsort(b))
+    return float(np.corrcoef(ra, rb)[0, 1])
+
+
 def load():
     out = {}
     for s in SIZES:
@@ -94,6 +119,23 @@ def main():
     print("  |---|" + "---|" * len(sizes))
     for t in tasks:
         print("  | %s | %s |" % (t, " | ".join("%.0f%%" % f[s]["ratio"][t] for s in sizes)))
+
+    ret = returns()
+    if ret:
+        print("\n  Against TD-MPC2's own evaluation of the same checkpoints"
+              " (return out of 1000):\n")
+        print("  | task | " + " | ".join("mt30-%s  return / lost" % s for s in sizes) + " |")
+        print("  |---|" + "---|" * len(sizes))
+        for t in tasks:
+            print("  | %s | %s |" % (t, " | ".join(
+                "%.0f / %.0f%%" % (ret[s][t], f[s]["loses"][t]) for s in sizes)))
+        print()
+        for s in sizes:
+            r = np.array([ret[s][t] for t in tasks])
+            l = np.array([f[s]["loses"][t] for t in tasks])
+            print("    mt30-%-5s rank correlation between the two columns: %+.2f"
+                  % (s, _spearman(r, l)))
+        print("    - no stable relationship, in either direction.")
 
     big = sizes[-1]
     print("\n  Steps before the prediction stops beating standing still, mt30-%s," % big)

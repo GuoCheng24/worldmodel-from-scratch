@@ -81,6 +81,38 @@ solve. `pendulum-swingup` regresses too, 8% to 4% to 18%. Whatever is wrong
 there is not a capacity problem, and no number the codebase reports would show
 it.
 
+**Does any of it matter?** Not the way the table suggests. TD-MPC2's own
+`evaluate.py` on the same checkpoints, two episodes per task, against the same
+share:
+
+| task | mt30-1M | mt30-48M | mt30-317M |
+|---|---|---|---|
+| cartpole-swingup | 242 / 42% | 1 / 44% | **754 / 57%** |
+| walker-walk | 229 / 55% | 982 / 0% | 972 / 0% |
+| cheetah-run | 12 / 22% | 30 / 22% | 840 / 0% |
+| finger-spin | 360 / 68% | 942 / 0% | 927 / 0% |
+| reacher-easy | 0 / 22% | 978 / 5% | 985 / 4% |
+| cup-catch | 464 / 60% | 868 / 1% | 974 / 7% |
+| pendulum-swingup | 0 / 8% | 846 / 4% | 890 / 18% |
+| hopper-stand | 0 / 79% | 492 / 9% | 729 / 4% |
+
+<sub>return out of 1000 / share of starts where the k=3 prediction loses to
+standing still. Returns are in `returns_mt30.tsv`; `summarise.py` recomputes
+both columns.</sub>
+
+At 317M, `cartpole-swingup` scores **754** while its three-step prediction loses
+on **57%** of starts - the worst prediction in the set, on a task the agent
+does. The planner replans every step and bootstraps the tail with a value
+function, and that is evidently enough to survive a rollout that is worse than
+standing still.
+
+The rank correlation between the two columns is **+0.43, -0.86, -0.12** at 1M,
+48M and 317M. It looks convincing at 48M and it is an accident of that model
+having exactly two failing tasks; at eight tasks, nothing here supports either
+number standing in for the other. **A reward curve does not tell you what the
+model knows, and this share does not tell you whether the agent will succeed.**
+Both are worth measuring, which is the point.
+
 **The horizon is not one number.** Asking the same question at every step of one
 episode, rather than once per model:
 

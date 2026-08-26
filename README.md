@@ -1,6 +1,6 @@
 # worldmodel-from-scratch
 
-[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-72%2F72%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-74%2F74%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Build a world model in an afternoon — then find out how far you can trust it.**
 
@@ -142,10 +142,22 @@ Measured across 8 dm_control tasks, 640 rollouts each, at three model sizes:
   three of the eight tasks to 1% or below.
 - **mt30-317M**: **4%**. Another 6.6x buys nothing at all.
 
-And on `cartpole-swingup` the share **rises at every size — 42%, 44%, 57%**. At
-317M, on the majority of starts, rolling the learned dynamics forward three
-steps is worse than not rolling them forward, on the task the planner is being
-asked to solve. Scale fixed the catastrophic cases and then stopped.
+And on `cartpole-swingup` the share **rises at every size — 42%, 44%, 57%**.
+Scale fixed the catastrophic cases and then stopped.
+
+Which matters less than it sounds, and that is the interesting part. Run
+TD-MPC2's own evaluation on the same checkpoints and `cartpole-swingup` — the
+task with the worst prediction at every size — **scores 754 of 1000 at 317M**.
+The planner does the task while the rollout it scores actions with is, on most
+starts, worse than assuming nothing changed. It replans every step and
+bootstraps the tail with a value function, and that is evidently enough.
+
+So neither number stands in for the other. Across these eight tasks the rank
+correlation between return and this share is **+0.43, −0.86 and −0.12** at 1M,
+48M and 317M: no stable relationship, in either direction. A reward curve does
+not tell you what the model knows, and this does not tell you whether the agent
+will succeed — the same thing the animation at the top of this file shows, on a
+system small enough to draw.
 
 <p align="center">
   <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="69%">
@@ -590,7 +602,7 @@ Every claim in `check_claims.py` is marked **stable** or not:
 |---|---|---|
 | 34 library controls and 22 figure checks (`tests/`) | ✓ on Python 3.9, 3.11, 3.12 | ✓ |
 | Lessons 1–2, **stable claims** | ✓ | ✓ |
-| 7 TD-MPC2 numbers, recomputed from the committed `.npz` | ✓ needs neither GPU nor checkpoint | ✓ |
+| 9 TD-MPC2 numbers, recomputed from the committed results | ✓ needs neither GPU nor checkpoint | ✓ |
 | Lessons 1–2, recorded numbers | ✗ different CPU | ✓ |
 | Lessons 3–6 | ✗ wants a GPU or MuJoCo | ✓ |
 

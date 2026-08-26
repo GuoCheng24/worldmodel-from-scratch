@@ -109,7 +109,7 @@ CLAIMS = [
 
 
 PLAN_H = 3        # TD-MPC2 rolls its model forward this many steps to score actions
-N_INTEGRATION = 7 # claims recomputed from integrations/tdmpc2/*.npz
+N_INTEGRATION = 9 # claims recomputed from integrations/tdmpc2/ artefacts
 
 
 def _tdmpc2_facts():
@@ -133,7 +133,24 @@ def _tdmpc2_facts():
     runs = summarise.load()
     if len(runs) < 3:
         return None
-    return summarise.facts(runs)
+    f = summarise.facts(runs)
+    ret = summarise.returns()
+    if not ret:
+        return None
+    import numpy as np
+    f["returns"] = ret
+    f["rho"] = {}
+    for s in ("1M", "48M", "317M"):
+        tasks = f[s]["tasks"]
+        f["rho"][s] = summarise._spearman(
+            np.array([ret[s][t] for t in tasks]),
+            np.array([f[s]["loses"][t] for t in tasks]))
+    return f
+
+
+def _sig(x):
+    """Format the way the READMEs do: a real minus sign, not a hyphen."""
+    return ("%+.2f" % x).replace("-", "\u2212")
 
 
 def integration_claims(f):
@@ -169,6 +186,14 @@ def integration_claims(f):
           "README.zh-CN.md": r"8 个任务里有 %d 个降到 1%% 及以下" % tiny}),
         ("8 tasks were measured",
          {"README.md": r"8 dm_control tasks", "README.zh-CN.md": r"8 个 dm_control"}),
+        ("mt30-317M return on the worst-predicted task",
+         {"README.md": r"\*\*[^*]{0,12}%.0f of 1000 at 317M\*\*" % f["returns"]["317M"][cart],
+          "README.zh-CN.md": b("\u5728 317M \u4e0a\u62ff\u5230 %.0f/1000" % f["returns"]["317M"][cart])}),
+        ("rank correlation is unstable across sizes",
+         {"README.md": b(", ".join(_sig(f["rho"][s]) for s in ("1M", "48M"))
+                         .replace(", " + _sig(f["rho"]["48M"]),
+                                  ", " + _sig(f["rho"]["48M"]) + " and " + _sig(f["rho"]["317M"]))),
+          "README.zh-CN.md": b("\u3001".join(_sig(f["rho"][s]) for s in ("1M", "48M", "317M")))}),
     ]
 
 

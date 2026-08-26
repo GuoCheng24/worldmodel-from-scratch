@@ -1,6 +1,6 @@
 # worldmodel-from-scratch
 
-[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-72%2F72%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![test](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml/badge.svg)](https://github.com/GuoCheng24/worldmodel-from-scratch/actions/workflows/test.yml) [![claims](https://img.shields.io/badge/README%20claims-74%2F74%20verified-2e7d5b)](check_claims.py) [![python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/) [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **一个下午写出一个世界模型 —— 然后搞清楚它能信到第几步。**
 
@@ -124,8 +124,17 @@ TD-MPC2 规划时把学到的动力学**前推 3 步**再打分——在每一�
 - **mt30-317M**:**4%**。再涨 6.6 倍,**什么也没买到**。
 
 而 `cartpole-swingup` 上这个比例**随规模逐级上升——42%、44%、57%**。
-在 317M 上,**超过一半的起点**,把学到的动力学前推三步还不如根本不推——
-而这正是规划器被要求解决的那个任务。规模修掉了灾难性的那几个,然后就停了。
+规模修掉了灾难性的那几个,然后就停了。
+
+**而这件事的后果比听上去小得多,这才是有意思的地方。** 用 TD-MPC2 自己的评测跑同一批
+checkpoint,`cartpole-swingup`——三个规模上预测最差的那个任务——**在 317M 上拿到 754/1000**。
+规划器把任务做成了,而它用来给候选动作打分的那条 rollout,在多数起点上还不如"假设什么都没变"。
+它每一步都重新规划、并用价值函数兜住尾巴,显然这就够了。
+
+**所以这两个数谁也替代不了谁。** 在这八个任务上,回报与该比例的秩相关在 1M / 48M / 317M
+分别是 **+0.43、−0.86、−0.12**——**没有稳定关系,两个方向都没有**。奖励曲线不告诉你模型知道什么,
+而这个数也不告诉你智能体能不能成功——**这和本文开头那张动图讲的是同一件事**,
+只不过那里的系统小到可以直接画出来。
 
 <p align="center">
   <img src="integrations/tdmpc2/tdmpc2-trust.gif" width="69%">
@@ -492,7 +501,7 @@ H 从 5 到 40 状态误差涨了 30 多倍,而排序还在,**规划器直到排
 |---|---|---|
 | 34 项库正对照 + 22 项配图检查(`tests/`) | ✓ Python 3.9 / 3.11 / 3.12 | ✓ |
 | 第 1–2 课的**稳定断言** | ✓ | ✓ |
-| 7 个 TD-MPC2 数字, 从已提交的 `.npz` 重算 | ✓ 不需要 GPU 也不需要 checkpoint | ✓ |
+| 9 个 TD-MPC2 数字, 从已提交的结果文件重算 | ✓ 不需要 GPU 也不需要 checkpoint | ✓ |
 | 第 1–2 课的记录数字 | ✗ CPU 不同 | ✓ |
 | 第 3–6 课 | ✗ 需 GPU 或 MuJoCo | ✓ |
 
