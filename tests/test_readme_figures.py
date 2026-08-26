@@ -18,11 +18,14 @@ displayed width to native width, which is.
 """
 import pathlib
 import re
+import subprocess
 import sys
 
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tests"))
+from test_readme_markdown import _docs
 COLUMN_PX = 896          # GitHub's README content column, near enough
 MIN_SCALE = 0.40         # below this, 8-9 pt labels stop being readable
 MAX_SCALE = 1.0          # above this, the image is being upscaled
@@ -32,9 +35,10 @@ def _figures():
     """(readme, path-from-repo-root, displayed width in percent) for every
     figure any README in the repository sizes explicitly. Paths in a README are
     relative to that file, not to the root."""
-    for f in sorted(ROOT.glob("**/README*.md")):
-        if ".git" in f.parts:
-            continue
+    # Same list the markdown checks use, for the same reason: globbing the tree
+    # picks up .pytest_cache/README.md, so the set of documents would depend on
+    # where the reader last ran pytest rather than on what is in the repository.
+    for f in _docs():
         rel = f.parent.relative_to(ROOT)
         for m in re.finditer(r'<img src="([^"]+)" width="(\d+)%"', f.read_text()):
             yield str(f.relative_to(ROOT)), str(rel / m.group(1)), int(m.group(2))
@@ -63,14 +67,33 @@ def test_figure_is_shown_at_a_readable_scale(readme, src, pct):
         "or show it wider." % (readme, src, scale, native))
 
 
-def _count_tests(path):
-    """Test functions in a file, counting a parametrised one once."""
-    import ast
-    n = 0
-    for node in ast.walk(ast.parse(path.read_text())):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
-            n += 1
-    return n
+def _collected():
+    """How many test instances pytest actually collects, per file.
+
+    These counts used to be reconstructed by hand - "that file has two tests
+    parametrised over every document, so subtract two and add twice the number
+    of documents". That arithmetic states a fact about one test file inside a
+    different one, and it was wrong the moment the document list changed: it
+    read 13 in the tree it was written in and 9 in a fresh clone, which is the
+    form the CI failure took. Ask pytest instead of predicting it.
+
+    --collect-only imports the test modules but runs nothing, so this does not
+    recurse into itself. no:cacheprovider keeps the call from writing the very
+    .pytest_cache directory whose stray README started all this.
+    """
+    out = subprocess.run(
+        [sys.executable, "-m", "pytest", str(ROOT / "tests"),
+         "--collect-only", "-q", "-p", "no:cacheprovider"],
+        capture_output=True, text=True, cwd=str(ROOT))
+    counts = {}
+    for line in out.stdout.splitlines():
+        if "::" in line:
+            counts[pathlib.Path(line.split("::")[0].strip()).name] = \
+                counts.get(pathlib.Path(line.split("::")[0].strip()).name, 0) + 1
+    if not counts:
+        raise AssertionError("pytest --collect-only collected nothing:\n"
+                             + out.stdout + out.stderr)
+    return counts
 
 
 def test_readme_states_the_right_test_counts():
@@ -80,13 +103,10 @@ def test_readme_states_the_right_test_counts():
     where there were 26. The claim count next to them is checked by
     check_claims.py; this checks these.
     """
-    lib = _count_tests(ROOT / "tests" / "test_library.py")
-    figs = len(list(_figures())) + _count_tests(pathlib.Path(__file__)) - 1  # minus the parametrised one
-    md_file = ROOT / "tests" / "test_readme_markdown.py"
-    sys.path.insert(0, str(ROOT / "tests"))
-    import test_readme_markdown as md_mod
-    docs = len(md_mod.DOCS)
-    md = _count_tests(md_file) - 2 + 2 * docs   # two parametrised over every doc
+    counts = _collected()
+    lib = counts["test_library.py"]
+    figs = counts["test_readme_figures.py"]
+    md = counts["test_readme_markdown.py"]
     text = (ROOT / "README.md").read_text()
     m = re.search(r"(\d+) library controls, (\d+) figure checks and (\d+) markdown checks", text)
     assert m, "the badge section no longer states the test counts"
