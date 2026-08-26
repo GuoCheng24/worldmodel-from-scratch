@@ -45,8 +45,17 @@ fig, AX = plt.subplots(1, 2, figsize=(FIG_W, 4.3))
 b, y = AX[0], np.arange(len(tasks))[::-1]
 for j, (s, sh) in enumerate(zip(sizes, SHADE)):
     v = [F[s]["loses"][t] for t in tasks]
-    b.barh(y + (j - (len(sizes) - 1) / 2) * .26, v, .25, color=sh,
-           label="mt30-" + s, edgecolor="white", linewidth=.4)
+    off = y + (j - (len(sizes) - 1) / 2) * .26
+    b.barh(off, v, .25, color=sh, label="mt30-" + s,
+           edgecolor="white", linewidth=.4)
+    # A bar of length zero draws nothing, and nothing looks exactly like a task
+    # that was not run. Five of these are real zeros - the 317M model never
+    # loses to standing still on walker-walk, cheetah-run or finger-spin -
+    # which is the strongest result in the panel and the one a blank row hides.
+    for yi, vi in zip(off, v):
+        if vi < 0.5:
+            b.text(0.8, yi, "0", color=sh, fontsize=6.8, va="center",
+                   ha="left", fontweight="bold")
 b.axvline(50, color=RED, lw=1.2, ls="--")
 b.text(51, -.72, "half the starts", color=RED, fontsize=7.4, va="bottom")
 b.set_yticks(y); b.set_yticklabels(tasks, fontsize=8)
@@ -98,6 +107,21 @@ for c, t in zip(COL, tasks):
     e, n = np.median(r["err__" + t], 0), np.median(r["still__" + t], 0)
     curves[t] = 100 * e / np.maximum(n, 1e-12)
     a.plot(np.arange(1, K + 1), curves[t], lw=1.5, color=c)
+    # Two of these leave the top of the frame, and a curve that just stops at
+    # the edge reads as a curve that ended. One of them is the sharpest result
+    # in the panel - pendulum-swingup climbs to 634% of the latent's motion -
+    # so mark where it goes out and say how high it gets. Clipping is a drawing
+    # decision; hiding the number is not one this repository gets to make.
+    if curves[t].max() > YMAX:
+        kx = int(np.argmax(curves[t] > YMAX)) + 1
+        a.plot([kx], [YMAX], marker="^", ms=4.5, color=c, clip_on=False)
+        # A curve that exits inside the shaded band has no room next to its own
+        # caret - the band's label is already there - so that note goes on the
+        # line below it instead of on top of it.
+        tx, ty = ((PLAN_H + .15, YMAX - 14) if kx <= PLAN_H
+                  else (kx + .25, YMAX - 7))
+        a.text(tx, ty, "off the top, to %.0f%%" % curves[t].max(),
+               color=c, fontsize=6.8, va="top", ha="left")
 
 
 def stack(desired, lo, hi, gap):

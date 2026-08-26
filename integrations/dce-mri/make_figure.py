@@ -77,7 +77,12 @@ for i, v in enumerate(vals):
     b.text(i, v - .035, "%.3f" % v, ha="center", fontsize=8.4, color="white", weight="bold")
 b.set_xticks(xx); b.set_xticklabels(names, fontsize=8)
 b.set_ylabel("SSIM inside the lesion box")
-b.set_title("(b)  What moves it: nothing tried here", loc="left", fontsize=9.6)
+# Not "nothing moves it": the oracle run moves it by +0.026, and the text is
+# careful to report that without interpreting it. A panel title that rounds
+# it to zero claims more than the run supports, in a figure whose whole
+# point is that overclaiming is the failure mode.
+b.set_title("(b)  Two things tried, and how little either moved it",
+            loc="left", fontsize=9.6)
 b.set_xlim(-.6, len(vals) - .4); b.set_ylim(0, 0.95)
 b.spines[["top", "right"]].set_visible(False)
 
