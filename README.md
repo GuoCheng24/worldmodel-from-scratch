@@ -22,16 +22,14 @@ anything, including somebody else's published model.
   <img src="figures/imagination-invertedpendulum.gif" width="69%">
 </p>
 
-<sub><b>Left</b> — a model learned from random play, driving a planner that holds
-a pole upright. It does, for all 90 steps, in every run. <b>Right</b> — the same
-model, from the same start, imagining where that same sequence of actions leads.
-Its pole leaves the angle this environment calls a failure
-between step 13 and step 23 - five runs, the model retrained each time - and the
-real one never does. <b>A model good enough to control a system is wrong about it
-within about twenty steps</b>, and a one-step loss around 1e-03 says nothing
-about that. Both panels are the simulator, rendered from the states each trajectory
-actually holds — possible here because the state is the simulator state, which
-is exactly what a latent-space model cannot show you.
+<sub><b>A model good enough to control a system, wrong about it within about
+twenty steps.</b> <b>Left</b> — a planner using a model learned from random play
+holds a pole upright, for all 90 steps, in every run. <b>Right</b> — the same
+model, same start, same actions, imagining where they lead: its pole passes the
+angle this environment calls a failure between step 13 and step 23 across five
+runs, and the real one never does. A one-step loss around 1e-03 says nothing
+about that. Both panels are the simulator — the imagined states are pushed back
+into MuJoCo and rendered, which a latent-space model cannot do.
 <code>make_imagination.py</code>.</sub>
 
 <p align="center">
@@ -365,25 +363,6 @@ On the same model and the same task, the 5th and 95th percentile trajectories
 differ by **16x** in how many steps they survive. A fixed rollout horizon is too
 long for the worst of them and needlessly short for the best.
 
-## Open questions
-
-Genuine ones, not decoration. If you have an answer, it is worth an issue.
-
-1. **Is the pile-up factor closer to the independent or the aligned
-   prediction?** The measurement moves between 8 and 30 with the estimator and
-   the seed, which straddles the midpoint between 7.5 and 111. Separating them
-   needs a better estimator than the ratio of two noisy curves.
-2. **Why does the arithmetic mean bias the two Lorenz curves in *opposite*
-   directions?** Both have log-error dispersion that widens with time, which
-   predicts inflation for both. The model rollout inflates by +11%; the single
-   perturbation deflates by −7%. A lognormal σ²/2 correction fits neither.
-   Wrong-lobe events are the obvious suspect — by t=9, 97% of rollouts have
-   ended up on the wrong lobe of the attractor — but conditioning on survival
-   to test it introduces its own selection bias, and we could not remove it
-   cleanly.
-3. **Does any of this survive on pixels?** Everything here is a fully observed
-   low-dimensional state. See Honest scope.
-
 **3 · Planning with a model you do not trust.** Lesson 2's usable horizon looks
 like it should decide the planning horizon. It does not, and the gap is large.
 
@@ -582,6 +561,29 @@ and the planner pays nothing until the ranking goes.
 <p align="center">
   <img src="figures/real-robots.png" width="100%">
 </p>
+
+## Open questions
+
+Genuine ones, not decoration. If you have an answer, it is worth an issue.
+
+1. **Is the pile-up factor closer to the independent or the aligned
+   prediction?** The measurement moves between 8 and 30 with the estimator and
+   the seed, which straddles the midpoint between 7.5 and 111. Separating them
+   needs a better estimator than the ratio of two noisy curves.
+2. **Why does the arithmetic mean bias the two Lorenz curves in *opposite*
+   directions?** Both have log-error dispersion that widens with time, which
+   predicts inflation for both. The model rollout inflates by +11%; the single
+   perturbation deflates by −7%. A lognormal σ²/2 correction fits neither.
+   Wrong-lobe events are the obvious suspect — by t=9, 97% of rollouts have
+   ended up on the wrong lobe of the attractor — but conditioning on survival
+   to test it introduces its own selection bias, and we could not remove it
+   cleanly.
+3. **Does any of this survive on pixels?** Partly answered, and the honest
+   split matters. [integrations/dce-mri/](integrations/dce-mri/) measures a
+   model that predicts pixels, and the aggregate-metric result carries over
+   intact. What does not carry over is the part about compounding error: that
+   model is handed a real image every time and never consumes its own output.
+   A model rolled forward in its own pixel predictions is still untested here.
 
 ## What is coming
 
