@@ -16,13 +16,17 @@
 一次调用就能把同样的测量做在任何模型上,**包括别人已经发表的模型**。
 
 <p align="center">
-  <img src="figures/arm-still.png" width="94%">
+  <img src="figures/imagination-invertedpendulum.gif" width="69%">
 </p>
 
-<sub>一条 MuJoCo 机械臂够向目标(那个小红点),全程在一个<b>从随机游玩数据里学来、训练期间没有任何奖励信号</b>的模型内部完成规划;
-上一行是同一个规划器换成随机动作。两行起点相同。出处是第 6 课,
-<code>make_visuals.py</code> 同时会生成动图版本(放在第 6 课那一节)。
-这里用静态图,是因为 <b>GitHub 会给动图套上播放控件</b>——开了"减少动态效果"的读者只看得到一帧。</sub>
+<sub><b>左</b>——一个<b>从随机游玩数据里学来</b>的模型,驱动规划器把杆立住。它做到了,
+90 步全程,每次运行都做到。<b>右</b>——同一个模型、同一个起点,想象<b>同一串动作</b>会把杆带到哪。
+它想象出来的杆在**第 13 到 23 步之间**(五次运行、每次重训模型)就越出了
+这个环境判定失败的角度,而真实的那根从没越过。
+<b>一个好到足以控制这个系统的模型,二十步左右就已经搞错了它</b>——而 1e-03 量级的单步损失
+对此只字未提。两边都是模拟器的真实渲染:把各自轨迹的状态直接塞回模拟器画出来,
+这在这里做得到,是因为<b>状态就是模拟器状态</b>——而这恰恰是潜空间模型给不了你的。
+<code>make_imagination.py</code>。</sub>
 
 <p align="center">
   <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
@@ -157,6 +161,7 @@ MUJOCO_GL=egl python lessons/05_real_environments.py          # 65 秒
 MUJOCO_GL=egl python lessons/06_a_real_robot_arm.py           # 67 秒
 python make_figures.py                             # 重画上面的静态图
 python make_visuals.py                             # 重画上面的动图
+MUJOCO_GL=egl python make_imagination.py           # 40 秒, 生成开头那张动图
 ```
 
 下面引用的每一个数字都由这两个脚本产生。**不用信,可以直接查:**
@@ -418,6 +423,13 @@ export MUJOCO_GL=egl        # 必须在 import mujoco 或 gymnasium 之前
 <p align="center">
   <img src="figures/arm.gif" width="76%">
 </p>
+
+<p align="center">
+  <img src="figures/arm-still.png" width="94%">
+</p>
+
+<sub>同一次运行取三帧的静态版。<b>GitHub 会给动图套上播放控件</b>,
+开了"减少动态效果"的读者只看得到第一帧。</sub>
 
 | 规划器 | 每步回报 | 终态指尖-目标距离 |
 |---|---|---|

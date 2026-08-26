@@ -19,15 +19,20 @@ an answer — and **`wm.diagnose()`**, one call that makes the same measurement 
 anything, including somebody else's published model.
 
 <p align="center">
-  <img src="figures/arm-still.png" width="94%">
+  <img src="figures/imagination-invertedpendulum.gif" width="69%">
 </p>
 
-<sub>A MuJoCo arm reaching a target (the small red dot), planned entirely inside
-a model learned from random play with no reward signal during training — and the
-same planner given random actions instead. Both start in the same pose. Lesson 6
-is where this comes from, and <code>make_visuals.py</code> also writes it as an
-animation, shown there. This still is here because GitHub wraps animated images
-in a play control, so a reader who has asked for reduced motion sees one frame.</sub>
+<sub><b>Left</b> — a model learned from random play, driving a planner that holds
+a pole upright. It does, for all 90 steps, in every run. <b>Right</b> — the same
+model, from the same start, imagining where that same sequence of actions leads.
+Its pole leaves the angle this environment calls a failure
+between step 13 and step 23 - five runs, the model retrained each time - and the
+real one never does. <b>A model good enough to control a system is wrong about it
+within about twenty steps</b>, and a one-step loss around 1e-03 says nothing
+about that. Both panels are the simulator, rendered from the states each trajectory
+actually holds — possible here because the state is the simulator state, which
+is exactly what a latent-space model cannot show you.
+<code>make_imagination.py</code>.</sub>
 
 <p align="center">
   <img src="integrations/tdmpc2/tdmpc2-diagnosis.png" width="100%">
@@ -178,6 +183,7 @@ MUJOCO_GL=egl python lessons/05_real_environments.py          # 65 s
 MUJOCO_GL=egl python lessons/06_a_real_robot_arm.py           # 67 s
 python make_figures.py                             # redraws the plots above
 python make_visuals.py                             # redraws the animations
+MUJOCO_GL=egl python make_imagination.py           # 40 s, the animation at the top
 ```
 
 Every number quoted below is produced by those two scripts. To check that
@@ -499,6 +505,13 @@ dataset with no reward signal during training:
 <p align="center">
   <img src="figures/arm.gif" width="76%">
 </p>
+
+<p align="center">
+  <img src="figures/arm-still.png" width="94%">
+</p>
+
+<sub>The same run as three frames, because GitHub wraps animated images in a play
+control and a reader who has asked for reduced motion sees only the first.</sub>
 
 | planner | reward/step | final fingertip-to-target |
 |---|---|---|
