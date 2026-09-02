@@ -228,7 +228,8 @@ MUJOCO_GL=egl python make_imagination.py           # 40 s, the animation at the 
 <sub>Those times are on one GPU. Lessons 1-4 need nothing beyond the three packages
 above and run on a CPU too, at a cost that is real and not uniform: measured on
 eight CPU threads, Lessons 1 and 4 take 3x longer, Lesson 3 6x and Lesson 2 10x,
-so the four together are about nineteen minutes rather than three.</sub>
+so the four together are about nineteen minutes rather than three. On a single
+core it is several times that again — Lesson 2 alone measured 27 minutes.</sub>
 
 Every number quoted below is produced by those two scripts. To check that
 claim rather than take it:
@@ -251,11 +252,12 @@ written into every command that needs it.
 ## The lessons
 
 **1 · A world model in 50 lines.** Build it, train it, and make two
-measurements. Predicting the state *change* rather than the next state is 2.1x
-more accurate for one line of code — with `dt` small, `s(t+1)` is nearly
-`s(t)`, so a direct model is partly rewarded for copying its input. Then the
-one that matters: a model with a one-step MSE of `1.5e-05` is **14x worse by
-step 20**. The one-step number everyone reports does not tell you what you
+measurements. Predicting the state *change* rather than the next state is
+more accurate for one line of code — 2.1x on the reference machine, 1.4x on a
+single CPU core, and the direction never flips — because with `dt` small,
+`s(t+1)` is nearly `s(t)`, so a direct model is partly rewarded for copying its
+input. Then the one that matters: a model whose one-step MSE is `1.5e-05` here
+(`4.7e-05` on that other machine) is **14x worse by step 20**. The one-step number everyone reports does not tell you what you
 want to know.
 
 **2 · Why rollouts drift.** The standard explanation is the compounding-error
