@@ -66,16 +66,21 @@ def card(out, accent, badge, kicker, headline, evidence, chart, footer,
     # reported clean.
     try:
         sys.path.insert(0, str(pathlib.Path.home() / "sciglyph"))
-        from sciglyph.layout import text_collisions
+        from sciglyph.layout import missing_glyphs, text_collisions
         hits, _ = text_collisions(fig, ax)
+        tofu = missing_glyphs(fig)
     except Exception:
-        hits = []
+        hits, tofu = [], []
 
     problems = cardcheck.audit(
         fig, ax, ground=BG, chrome=(t_kicker, t_footer, t_badge),
         panels=[(10.90, 5.51, 11.60, 6.03, accent)],   # the badge sits on its own colour
         verbose=True)
     problems += [f"text overlap {100 * f:.0f}%: {a!r} x {b!r}" for a, b, f in hits]
+    # A character the font cannot draw renders as a hollow box and is invisible to every
+    # geometric check: a draft of this card said "log p1" with a subscript and shipped two
+    # pieces of tofu that looked fine to the collision and contrast tests.
+    problems += [f"font cannot draw {c!r} - it renders as an empty box" for c in tofu]
     if problems:
         raise ValueError("card fails its own acceptance test:\n  " + "\n  ".join(problems))
 
