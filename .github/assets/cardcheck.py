@@ -59,11 +59,11 @@ def audit(fig, ax, ground, panels=(), chrome=(), min_ratio=4.5, verbose=True):
         size_px = t.get_fontsize()
         area = box.width * box.height
 
+        cx, cy = (box.x0 + box.x1) / 2 / 100, (box.y0 + box.y1) / 2 / 100
         if box.x1 > W - 20 or box.x0 < 0 or box.y1 > H or box.y0 < 0:
             problems.append(f"off canvas: {s[:40]!r} ends at x={box.x1:.0f} of {W:.0f}")
 
         bg = ground
-        cx, cy = (box.x0 + box.x1) / 2 / 100, (box.y0 + box.y1) / 2 / 100
         for x0, y0, x1, y1, col in panels:
             if x0 <= cx <= x1 and y0 <= cy <= y1:
                 bg = col
@@ -72,6 +72,27 @@ def audit(fig, ax, ground, panels=(), chrome=(), min_ratio=4.5, verbose=True):
         if ratio < need:
             problems.append(
                 f"contrast {ratio:.1f}:1 (needs {need}:1) for {s[:36]!r} on {bg}")
+
+        declared = any(x0 <= cx <= x1 and y0 <= cy <= y1 for x0, y0, x1, y1, _ in panels)
+        # Text on top of filled artwork the caller did not declare. The 128-tile grid on one
+        # card was drawn as patches, so every check passed while a headline sat on top of it.
+        for pt in (() if declared else ax.patches):
+            pb = pt.get_window_extent()
+            fc = pt.get_facecolor()
+            if len(fc) > 3 and fc[3] < 0.5:
+                continue
+            if pb.width * pb.height > 0.55 * (W * H):      # the card's own background
+                continue
+            dx = min(box.x1, pb.x1) - max(box.x0, pb.x0)
+            dy = min(box.y1, pb.y1) - max(box.y0, pb.y0)
+            # Any real overlap, not a share of the text box. A row of tiles crossing a
+            # headline covers a few percent of that box and is still a headline with tiles
+            # through it; the first threshold here was 12% and passed it twice.
+            if dx > 2 and dy > 2:
+                problems.append(
+                    f"{s[:32]!r} sits on undeclared artwork "
+                    f"({dx:.0f}x{dy:.0f} px of its box)")
+                break
 
         if id(t) in chrome:
             chrome_area += area
