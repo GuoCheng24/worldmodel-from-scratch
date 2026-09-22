@@ -102,6 +102,25 @@ def audit(fig, ax, ground, panels=(), chrome=(), min_ratio=4.5, verbose=True):
             problems.append(
                 f"{size_px:.0f} px is {size_px * UNFURL:.1f} px at 360 - unreadable: {s[:40]!r}")
 
+    # Texts that merely touch are not an overlap and pass the collision test, but they read
+    # as one run-on word: "SUSPECT10.9999/..." and "ERRORthe table has...". A gap of less than
+    # a third of a character between two texts on the same line is reported.
+    items = [(t, t.get_window_extent(r)) for t in ax.texts if t.get_text().strip()]
+    for i in range(len(items)):
+        for j in range(len(items)):
+            if i == j:
+                continue
+            (ta, ba), (tb, bb) = items[i], items[j]
+            same_line = min(ba.y1, bb.y1) - max(ba.y0, bb.y0) > 0.4 * min(ba.height, bb.height)
+            gap = bb.x0 - ba.x1
+            per_char = ba.width / max(len(ta.get_text().strip()), 1)
+            # gap may be negative: the boxes genuinely overlap, by an area too small for
+            # the collision test to notice. Both cases read the same way on the page.
+            if same_line and gap < 0.33 * per_char and bb.x0 > ba.x0:
+                problems.append(
+                    f"{ta.get_text()[:22]!r} and {tb.get_text()[:22]!r} are {gap:.0f} px "
+                    "apart and read as one word")
+
     if message_area and chrome_area > 0.45 * message_area:
         problems.append(
             f"chrome is {100 * chrome_area / (chrome_area + message_area):.0f}% of the "
