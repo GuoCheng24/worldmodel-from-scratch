@@ -1,0 +1,96 @@
+"""Objective acceptance tests for a social card, so "does it look good" stops being taste.
+
+A card is drawn at 1200x630 and unfurled at about 360 px wide in Slack, a scale of 0.30.
+Three things are then checkable rather than arguable:
+
+LEGIBILITY  Text a reader is meant to read must still be >= 10 px after that scale, i.e.
+            >= 33 px on the canvas. Anything smaller is texture by definition, and a card
+            that is mostly texture is mostly noise. The check reports how much of the ink
+            is in each class.
+
+CONTRAST    WCAG 2.1 relative luminance ratio for every text against the ground it sits
+            on. 4.5:1 for body, 3:1 for large text - the same bar a web page has to clear.
+
+FRAME       Nothing runs past the canvas, and nothing readable sits on a panel whose
+            colour is close to its own.
+"""
+UNFURL = 360 / 1200
+READABLE_PX = 10.0
+
+
+def _lum(c):
+    def f(v):
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
+
+
+def contrast(fg, bg):
+    """WCAG 2.1 contrast ratio between two matplotlib colours."""
+    from matplotlib.colors import to_rgb
+    a, b = _lum(to_rgb(fg)), _lum(to_rgb(bg))
+    hi, lo = max(a, b), min(a, b)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def audit(fig, ax, ground, panels=(), chrome=(), min_ratio=4.5, verbose=True):
+    """Return a list of problems. Empty list means the card passes.
+
+    ``chrome`` is the set of Text objects that carry no message - a kicker, a footer URL -
+    which nobody needs to read in a thumbnail. Everything else is the message and must clear
+    the legibility floor. The role cannot be inferred from geometry, so the caller declares
+    it; an earlier version measured legible *area* instead and was dominated by the length of
+    the footer, which made every card fail the harder it tried.
+
+    ``panels`` is a list of ``(x0, y0, x1, y1, colour)`` in canvas units, for regions whose
+    background is not ``ground``.
+    """
+    fig.canvas.draw()
+    r = fig.canvas.get_renderer()
+    W, H = (v * 100 for v in fig.get_size_inches())
+    floor = READABLE_PX / UNFURL
+    problems, chrome_area, message_area = [], 0.0, 0.0
+    chrome = set(id(t) for t in chrome)
+
+    for t in ax.texts:
+        s = t.get_text().strip()
+        if not s:
+            continue
+        box = t.get_window_extent(r)
+        size_px = t.get_fontsize()
+        area = box.width * box.height
+
+        if box.x1 > W - 20 or box.x0 < 0 or box.y1 > H or box.y0 < 0:
+            problems.append(f"off canvas: {s[:40]!r} ends at x={box.x1:.0f} of {W:.0f}")
+
+        bg = ground
+        cx, cy = (box.x0 + box.x1) / 2 / 100, (box.y0 + box.y1) / 2 / 100
+        for x0, y0, x1, y1, col in panels:
+            if x0 <= cx <= x1 and y0 <= cy <= y1:
+                bg = col
+        ratio = contrast(t.get_color(), bg)
+        need = 3.0 if size_px >= 24 else min_ratio
+        if ratio < need:
+            problems.append(
+                f"contrast {ratio:.1f}:1 (needs {need}:1) for {s[:36]!r} on {bg}")
+
+        if id(t) in chrome:
+            chrome_area += area
+            continue
+        message_area += area
+        if size_px < floor:
+            problems.append(
+                f"{size_px:.0f} px is {size_px * UNFURL:.1f} px at 360 - unreadable: {s[:40]!r}")
+
+    if message_area and chrome_area > 0.45 * message_area:
+        problems.append(
+            f"chrome is {100 * chrome_area / (chrome_area + message_area):.0f}% of the "
+            "text area; it should stay out of the way")
+    if verbose:
+        print(f"  [cardcheck] message text all >= {floor:.0f} px on canvas "
+              f"(= {READABLE_PX:.0f} px at 360); chrome "
+              f"{100 * chrome_area / max(chrome_area + message_area, 1):.0f}% of text area")
+        for p_ in problems:
+            print(f"  ! {p_}")
+        if not problems:
+            print("  [cardcheck] passes: legibility, contrast, frame")
+    return problems
