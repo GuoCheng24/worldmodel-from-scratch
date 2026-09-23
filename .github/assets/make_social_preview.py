@@ -39,14 +39,16 @@ def chart(ax, accent):
     ax.plot([X(s) for s in steps], [Y(v) for v in still], color="#8c8f94", lw=5, zorder=3)
     ax.plot([X(s) for s in steps], [Y(v) for v in err], color="#cf222e", lw=6, zorder=4)
     ax.plot([X(cross)], [Y(still[cross - 1])], "o", ms=18, color="#cf222e", zorder=5)
-    ax.plot([X(cross), X(cross)], [y0, Y(still[cross - 1])], color="#cf222e", lw=2,
+    # the dotted drop stops clear of its own label; a vertical rule through
+    # text passed every check until the rule test learned about vertical rules
+    ax.plot([X(cross), X(cross)], [y0 + 0.08, Y(still[cross - 1])], color="#cf222e", lw=2,
             ls=":", zorder=2)
 
     ax.text(X(1) - 0.20, Y(err[0]), "the model", fontsize=34, color="#cf222e",
             fontweight="bold", family=SANS, ha="right", va="center")
     ax.text(X(1) - 0.20, Y(still[0]) + 0.30, "assume nothing", fontsize=34, color="#55585c",
             family=SANS, ha="right", va="center")
-    ax.text(X(cross), y0 - 0.30, f"step {cross}", fontsize=34, color="#cf222e",
+    ax.text(X(cross), y0 - 0.40, f"step {cross}", fontsize=34, color="#cf222e",
             fontweight="bold", family=SANS, ha="center")
     ax.text(X(len(err)) + 0.16, Y(err[-1]), f"{err[-1] / still[-1]:.0f}x worse",
             fontsize=34, fontweight="bold", color="#cf222e", family=SANS,

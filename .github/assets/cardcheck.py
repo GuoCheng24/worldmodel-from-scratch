@@ -84,10 +84,19 @@ def audit(fig, ax, ground, panels=(), chrome=(), min_ratio=4.5, verbose=True):
                 continue
             lx0, lx1 = min(xs) * 100, max(xs) * 100
             ly0, ly1 = min(ys) * 100, max(ys) * 100
-            if ly1 - ly0 > 8:                      # only near-horizontal rules
+            # A rule is thin in ONE direction. Checking only for thin-in-height
+            # meant the condition that identifies a rule excluded every vertical
+            # one, and a dashed threshold line ran through a card's caption.
+            horizontal = ly1 - ly0 <= 8
+            vertical = lx1 - lx0 <= 8
+            if not (horizontal or vertical):
                 continue
-            if box.x0 < lx1 and box.x1 > lx0 and box.y0 < ly1 + 4 and box.y1 > ly0 - 4:
-                problems.append(f"{s[:32]!r} sits across a rule at y={ly0 / 100:.2f}")
+            if (box.x0 < lx1 + 4 and box.x1 > lx0 - 4
+                    and box.y0 < ly1 + 4 and box.y1 > ly0 - 4):
+                where = f"x={lx0 / 100:.2f}" if vertical else f"y={ly0 / 100:.2f}"
+                problems.append(
+                    f"{s[:32]!r} sits across a {'vertical' if vertical else 'horizontal'} "
+                    f"rule at {where}")
                 break
         # Text on top of filled artwork the caller did not declare. The 128-tile grid on one
         # card was drawn as patches, so every check passed while a headline sat on top of it.
