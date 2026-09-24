@@ -727,6 +727,13 @@ come back to when a rollout has gone wrong and you want to know why.
 Companion: [world-model-map](https://github.com/GuoCheng24/world-model-map) —
 what the authors of the major open world models say breaks in their own papers.
 
+## Other things from the same desk
+
+- [batch-logprob-gap](https://github.com/GuoCheng24/batch-logprob-gap) — in low-precision training the same token gets a different log probability depending on its batch shape — measured, with what it does and does not do to GRPO
+- [groundwork](https://github.com/GuoCheng24/groundwork) — a research pipeline for coding agents whose first stage can return NO-GO; on PyPI as `groundwork-research`
+
+More at [github.com/GuoCheng24](https://github.com/GuoCheng24).
+
 ## License
 
 MIT © Guo Cheng
